@@ -88,7 +88,7 @@ from lerobot.configs import parser
 from lerobot.configs.train import TrainRLServerPipelineConfig
 from lerobot.scripts.rl import learner_service
 from lerobot.scripts.rl.gym_manipulator import make_robot_env
-
+import matplotlib.pyplot as plt
 ACTOR_SHUTDOWN_TIMEOUT = 30
 
 
@@ -267,7 +267,8 @@ def act_with_policy(
     episode_total_steps = 0
 
     policy_timer = TimerManager("Policy inference", log=False)
-
+    fig, axes =plt.subplots(2,1)
+    fig.set_size_inches(25,50)
     for interaction_step in range(cfg.policy.online_steps):
         start_time = time.perf_counter()
         if shutdown_event.is_set():
@@ -286,7 +287,15 @@ def act_with_policy(
             action = online_env.action_space.sample()
 
         next_obs, reward, done, truncated, info = online_env.step(action)
-
+        #show the current observation
+        axes[0].clear()
+        axes[0].axis("off")
+        axes[0].imshow(next_obs["observation.images.front"][0].permute(1,2,0).cpu().numpy())
+        axes[1].clear()
+        axes[1].axis("off")
+        axes[1].imshow(next_obs["observation.images.wrist"][0].permute(1,2,0).cpu().numpy())
+        plt.pause(0.01)
+        
         sum_reward_episode += float(reward)
         # Increment total steps counter for intervention rate
         episode_total_steps += 1

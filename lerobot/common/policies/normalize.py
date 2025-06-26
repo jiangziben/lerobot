@@ -309,6 +309,9 @@ def _initialize_stats_buffers(
             if stats and key in stats and "min" in stats[key] and "max" in stats[key]:
                 min_data = stats[key]["min"]
                 max_data = stats[key]["max"]
+                if isinstance(min_data, np.ndarray):
+                    min_data = torch.from_numpy(min_data).to(dtype=torch.float32)
+                    max_data = torch.from_numpy(max_data).to(dtype=torch.float32)
                 if isinstance(min_data, torch.Tensor):
                     min_val = min_data.clone().to(dtype=torch.float32)
                     max_val = max_data.clone().to(dtype=torch.float32)

@@ -30,6 +30,7 @@ from lerobot.common.teleoperators import (
 from lerobot.configs import parser
 from lerobot.configs.train import TrainRLServerPipelineConfig
 from lerobot.scripts.rl.gym_manipulator import make_robot_env
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 
@@ -44,6 +45,11 @@ def eval_policy(env, policy, n_episodes):
             obs, reward, terminated, truncated, _ = env.step(action)
             episode_reward += reward
             if terminated or truncated:
+                print(f"Episode reward: {reward}")
+                if reward > 0:
+                    print("Success!")
+                else:
+                    print("Failure!")
                 break
         sum_reward_episode.append(episode_reward)
 
@@ -53,19 +59,26 @@ def eval_policy(env, policy, n_episodes):
 
 @parser.wrap()
 def main(cfg: TrainRLServerPipelineConfig):
+    config_path = parser.parse_arg("config_path")
+    policy_path = Path(config_path).parent
+    cfg.policy.pretrained_path = policy_path
     env_cfg = cfg.env
-    env = make_robot_env(env_cfg)
-    dataset_cfg = cfg.dataset
-    dataset = LeRobotDataset(repo_id=dataset_cfg.repo_id)
-    dataset_meta = dataset.meta
-
-    policy = make_policy(
+    env = make_robot_env(env_cfg,use_gamepad=False)
+    policy =  make_policy(
         cfg=cfg.policy,
-        # env_cfg=cfg.env,
-        ds_meta=dataset_meta,
+        env_cfg=cfg.env
     )
-    policy.from_pretrained(env_cfg.pretrained_policy_name_or_path)
-    policy.eval()
+    # dataset_cfg = cfg.dataset
+    # dataset = LeRobotDataset(repo_id=dataset_cfg.repo_id)
+    # dataset_meta = dataset.meta
+    # policy = make_policy(
+    #     cfg=cfg.policy,
+    #     # env_cfg=cfg.env,
+    #     ds_meta=dataset_meta,
+    # )
+    # policy.from_pretrained(env_cfg.pretrained_policy_name_or_path)
+
+    policy = policy.eval()
 
     eval_policy(env, policy=policy, n_episodes=10)
 

@@ -1839,7 +1839,7 @@ class GymHilObservationProcessorWrapper(gym.ObservationWrapper):
 ###########################################################
 
 
-def make_robot_env(cfg: EnvConfig) -> gym.Env:
+def make_robot_env(cfg: EnvConfig,**kwargs) -> gym.Env:
     """
     Factory function to create a robot environment.
 
@@ -1862,11 +1862,15 @@ def make_robot_env(cfg: EnvConfig) -> gym.Env:
             render_mode="human",
             use_gripper=cfg.wrapper.use_gripper,
             gripper_penalty=cfg.wrapper.gripper_penalty,
+            reset_delay_seconds = cfg.wrapper.reset_time_s,
+            max_episode_steps=1000,
+            **kwargs,
         )
         env = GymHilObservationProcessorWrapper(env=env)
         env = GymHilDeviceWrapper(env=env, device=cfg.device)
         env = BatchCompatibleWrapper(env=env)
         env = TorchActionWrapper(env=env, device=cfg.device)
+        env = TimeLimitWrapper(env=env, control_time_s=cfg.wrapper.control_time_s, fps=cfg.fps)
         return env
 
     if not hasattr(cfg, "robot") or not hasattr(cfg, "teleop"):
@@ -2250,6 +2254,7 @@ def main(cfg: EnvConfig):
 
         # Execute the step: wrap the NumPy action in a torch tensor.
         obs, reward, terminated, truncated, info = env.step(smoothed_action)
+        
         if terminated or truncated:
             successes.append(reward)
             env.reset()
