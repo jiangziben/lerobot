@@ -63,7 +63,7 @@ def main(cfg: TrainRLServerPipelineConfig):
     policy_path = Path(config_path).parent
     cfg.policy.pretrained_path = policy_path
     env_cfg = cfg.env
-    env = make_robot_env(env_cfg,use_gamepad=False)
+    env = make_robot_env(env_cfg,use_gamepad=False,random_block_position=True)
     policy =  make_policy(
         cfg=cfg.policy,
         env_cfg=cfg.env

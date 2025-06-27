@@ -236,7 +236,7 @@ def act_with_policy(
 
     logging.info("make_env online")
 
-    online_env = make_robot_env(cfg=cfg.env)
+    online_env = make_robot_env(cfg=cfg.env,random_block_position=True)
 
     set_seed(cfg.seed)
     device = get_safe_torch_device(cfg.policy.device, log=True)
