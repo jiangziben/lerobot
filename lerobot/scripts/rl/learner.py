@@ -99,7 +99,8 @@ from lerobot.common.utils.wandb_utils import WandBLogger
 from lerobot.configs import parser
 from lerobot.configs.train import TrainRLServerPipelineConfig
 from lerobot.scripts.rl import learner_service
-
+import os
+os.environ["WANDB_BASE_URL"] = "https://api.wandb-cn.top"
 LOG_PREFIX = "[LEARNER]"
 
 
