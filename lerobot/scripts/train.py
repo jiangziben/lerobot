@@ -51,7 +51,9 @@ from lerobot.common.utils.wandb_utils import WandBLogger
 from lerobot.configs import parser
 from lerobot.configs.train import TrainPipelineConfig
 from lerobot.scripts.eval import eval_policy
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["HF_ENDPOINT"]="https://hf-mirror.com"
 
 def update_policy(
     train_metrics: MetricsTracker,
