@@ -68,7 +68,7 @@ from lerobot.common.utils.robot_utils import busy_wait
 from lerobot.common.utils.utils import log_say
 from lerobot.configs import parser
 import matplotlib.pyplot as plt
-
+from force_vis import RealTimeForceVisualizer
 logging.basicConfig(level=logging.INFO)
 
 
@@ -2082,6 +2082,7 @@ def record_dataset(env, policy, cfg):
     recorded_action = None
     fig, axes =plt.subplots(2,1)
     fig.set_size_inches(25,50)
+    vis = RealTimeForceVisualizer()
     while episode_index < cfg.num_episodes:
         obs, _ = env.reset()
         start_episode_t = time.perf_counter()
@@ -2109,6 +2110,9 @@ def record_dataset(env, policy, cfg):
             axes[1].axis("off")
             axes[1].imshow(obs["observation.images.wrist"][0].permute(1,2,0).cpu().numpy())
             plt.pause(0.01)
+            # show force
+            force = obs["observation.state"][0][19:22].cpu().numpy()
+            vis.update_force(force)
 
             # Check if episode needs to be rerecorded
             if info.get("rerecord_episode", False):
@@ -2219,7 +2223,7 @@ def main(cfg: EnvConfig):
         cfg: Configuration object defining the run parameters,
              including mode (record, replay, random) and other settings.
     """
-    env = make_robot_env(cfg)
+    env = make_robot_env(cfg,render_mode="human")
     env.reset()
 
     if cfg.mode == "record":
