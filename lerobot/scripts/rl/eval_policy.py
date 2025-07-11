@@ -53,7 +53,7 @@ def eval_policy(env, policy, n_episodes):
                 break
         sum_reward_episode.append(episode_reward)
 
-    logging.info(f"Success after 20 steps {sum_reward_episode}")
+    logging.info(f"Success after 100 steps {sum_reward_episode}")
     logging.info(f"success rate {sum(sum_reward_episode) / len(sum_reward_episode)}")
 
 
@@ -63,7 +63,7 @@ def main(cfg: TrainRLServerPipelineConfig):
     policy_path = Path(config_path).parent
     cfg.policy.pretrained_path = policy_path
     env_cfg = cfg.env
-    env = make_robot_env(env_cfg,use_gamepad=False,random_block_position=True)
+    env = make_robot_env(env_cfg,use_gamepad=False,render_mode="human")
     policy =  make_policy(
         cfg=cfg.policy,
         env_cfg=cfg.env
@@ -80,7 +80,7 @@ def main(cfg: TrainRLServerPipelineConfig):
 
     policy = policy.eval()
 
-    eval_policy(env, policy=policy, n_episodes=10)
+    eval_policy(env, policy=policy, n_episodes=100)
 
 
 if __name__ == "__main__":

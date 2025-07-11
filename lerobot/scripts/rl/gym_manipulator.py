@@ -1823,7 +1823,7 @@ class GymHilObservationProcessorWrapper(gym.ObservationWrapper):
             if "pixels" in key:
                 for k in prev_space["pixels"]:
                     new_space[f"observation.images.{k}"] = gym.spaces.Box(
-                        0.0, 255.0, shape=(3, 128, 128), dtype=np.uint8
+                        0.0, 255.0, shape=(3, 240, 320), dtype=np.uint8
                     )
 
             if key == "agent_pos":
@@ -1860,7 +1860,6 @@ def make_robot_env(cfg: EnvConfig,**kwargs) -> gym.Env:
         env = gym.make(
             f"gym_hil/{cfg.task}",
             image_obs=True,
-            render_mode="human",
             use_gripper=cfg.wrapper.use_gripper,
             gripper_penalty=cfg.wrapper.gripper_penalty,
             reset_delay_seconds = cfg.wrapper.reset_time_s,
@@ -2033,7 +2032,7 @@ def record_dataset(env, policy, cfg):
     # Setup initial action (zero action if using teleop)
     action = env.action_space.sample() * 0.0
 
-    action_names = ["delta_x_ee", "delta_y_ee", "delta_z_ee"]
+    action_names = ["delta_x_ee", "delta_y_ee", "delta_z_ee","delta_roll_ee","delta_pitch_ee","delta_yaw_ee"]
     if cfg.wrapper.use_gripper:
         action_names.append("gripper_delta")
 
@@ -2220,7 +2219,7 @@ def main(cfg: EnvConfig):
         cfg: Configuration object defining the run parameters,
              including mode (record, replay, random) and other settings.
     """
-    env = make_robot_env(cfg,random_block_position=True)
+    env = make_robot_env(cfg)
     env.reset()
 
     if cfg.mode == "record":

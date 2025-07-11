@@ -237,7 +237,7 @@ def act_with_policy(
 
     logging.info("make_env online")
 
-    online_env = make_robot_env(cfg=cfg.env,random_block_position=True)
+    online_env = make_robot_env(cfg=cfg.env)
 
     set_seed(cfg.seed)
     device = get_safe_torch_device(cfg.policy.device, log=True)
@@ -270,8 +270,8 @@ def act_with_policy(
     policy_timer = TimerManager("Policy inference", log=False)
     #show
     fig, axes = plt.subplots(2, 1, figsize=(8, 4))
-    img1 = np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8)
-    img2 = np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8)
+    img1 = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
+    img2 = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
     im1 = axes[0].imshow(img1, interpolation='nearest')
     axes[0].set_title("Image 1")
     axes[0].axis('off')
