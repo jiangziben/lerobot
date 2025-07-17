@@ -1,0 +1,99 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "learner",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lerobot/scripts/rl/learner.py",
+            "console": "integratedTerminal",
+            "args": "--config_path=configs/train_gym_hil_env.json",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "actor",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lerobot/scripts/rl/actor.py",
+            "console": "integratedTerminal",
+            "args": "--config_path=configs/train_gym_hil_env.json",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "actor_resume",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lerobot/scripts/rl/actor.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-07-10/20-18-30_default/checkpoints/last/pretrained_model/train_config.json",
+                "--resume=true"
+            ],
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "learner_resume",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lerobot/scripts/rl/learner.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-07-10/20-18-30_default/checkpoints/last/pretrained_model/train_config.json",
+                "--resume=true"
+            ],
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },        
+        {
+            "name": "eval",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lerobot/scripts/rl/eval_policy.py",
+            "console": "integratedTerminal",
+            "args": "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-07-10/20-18-30_default/checkpoints/last/pretrained_model/train_config.json",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "record",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lerobot/scripts/rl/gym_manipulator.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config_path=/home/gsmp/extra_home/lerobot/configs/gym_hil_env.json"
+            ],
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lerobot/scripts/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--policy.path=lerobot/smolvla_base",
+                "--dataset.repo_id=blocks_stack_hard_D435_100",
+                "--batch_size=64",
+                "--steps=200000"
+            ],
+            "justMyCode": false,
+        }
+    ]
+}
