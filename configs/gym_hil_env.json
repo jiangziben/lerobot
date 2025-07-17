@@ -39,7 +39,7 @@
     },
     "name": "sapien_sim",
     "mode": "record",
-    "repo_id": "charging_task_hil_force",
+    "repo_id": "charging_task_hil",
     "dataset_root": null,
     "task": "ChargingTaskGamepad-v0",
     "num_episodes": 20,
@@ -68,7 +68,7 @@
         "observation.state": {
             "type": "STATE",
             "shape": [
-                22
+                19
             ]
         },
         "action": {

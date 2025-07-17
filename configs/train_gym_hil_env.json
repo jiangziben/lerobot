@@ -15,11 +15,11 @@
         "disable_artifact": true
     },
     "dataset": {
-        "repo_id": "charging_task_hil_force",
+        "repo_id": "charging_task_hil",
         "use_imagenet_stats": false
     },
     "policy": {
-        "repo_id": "charging_task_hil_force",
+        "repo_id": "charging_task_hil",
         "type": "sac",
         "n_obs_steps": 1,
         "normalization_mapping": {
