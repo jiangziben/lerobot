@@ -2208,7 +2208,7 @@ def main(cfg: EnvConfig):
         cfg: Configuration object defining the run parameters,
              including mode (record, replay, random) and other settings.
     """
-    env = make_robot_env(cfg,render_mode="rgb_array")
+    env = make_robot_env(cfg,render_mode="human")
     env.reset()
 
     if cfg.mode == "record":
