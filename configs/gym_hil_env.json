@@ -68,7 +68,7 @@
         "observation.state": {
             "type": "STATE",
             "shape": [
-                19
+                25
             ]
         },
         "action": {
