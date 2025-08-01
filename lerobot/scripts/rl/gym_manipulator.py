@@ -2249,8 +2249,6 @@ def main(cfg: EnvConfig):
         )
         exit()
 
-    env.reset()
-
     # Initialize the smoothed action as a random sample.
     smoothed_action = env.action_space.sample() * 0.0
 
