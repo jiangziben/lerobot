@@ -43,6 +43,7 @@ def eval_policy(env, policy, n_episodes):
         while True:
             action = policy.select_action(obs)
             obs, reward, terminated, truncated, _ = env.step(action)
+            # action[:,3:6] = 0.0
             episode_reward += reward
             if terminated or truncated:
                 print(f"Episode reward: {reward}")

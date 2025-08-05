@@ -268,16 +268,16 @@ def act_with_policy(
     episode_total_steps = 0
 
     policy_timer = TimerManager("Policy inference", log=False)
-    #show
-    fig, axes = plt.subplots(2, 1, figsize=(8, 4))
-    img1 = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
-    img2 = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
-    im1 = axes[0].imshow(img1, interpolation='nearest')
-    axes[0].set_title("Image 1")
-    axes[0].axis('off')
-    im2 = axes[1].imshow(img2, interpolation='nearest')
-    axes[1].set_title("Image 2")
-    axes[1].axis('off')
+    # #show
+    # fig, axes = plt.subplots(2, 1, figsize=(8, 4))
+    # img1 = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
+    # img2 = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
+    # im1 = axes[0].imshow(img1, interpolation='nearest')
+    # axes[0].set_title("Image 1")
+    # axes[0].axis('off')
+    # im2 = axes[1].imshow(img2, interpolation='nearest')
+    # axes[1].set_title("Image 2")
+    # axes[1].axis('off')
     for interaction_step in range(cfg.policy.online_steps):
         start_time = time.perf_counter()
         if shutdown_event.is_set():
@@ -295,13 +295,16 @@ def act_with_policy(
         else:
             action = online_env.action_space.sample()
 
+        if action.ndim > 1:
+            action = action.squeeze(0)  # Remove batch dimension if present
+        # action[3:6] = 0.0  # Set wrist action to zero, as we don't use it in this example
         next_obs, reward, done, truncated, info = online_env.step(action)
-        #show the current observation        
-        img1 = next_obs["observation.images.front"][0].permute(1,2,0).cpu().numpy()
-        im1.set_array(img1)
-        img2 = next_obs["observation.images.wrist"][0].permute(1,2,0).cpu().numpy()
-        im2.set_array(img2)
-        plt.pause(0.01)
+        # #show the current observation        
+        # img1 = next_obs["observation.images.front"][0].permute(1,2,0).cpu().numpy()
+        # im1.set_array(img1)
+        # img2 = next_obs["observation.images.wrist"][0].permute(1,2,0).cpu().numpy()
+        # im2.set_array(img2)
+        # plt.pause(0.01)
         
         sum_reward_episode += float(reward)
         # Increment total steps counter for intervention rate
