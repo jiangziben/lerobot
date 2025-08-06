@@ -297,7 +297,7 @@ def act_with_policy(
 
         if action.ndim > 1:
             action = action.squeeze(0)  # Remove batch dimension if present
-        # action[3:6] = 0.0  # Set wrist action to zero, as we don't use it in this example
+        action[3:6] = 0.0  # Set wrist action to zero, as we don't use it in this example
         next_obs, reward, done, truncated, info = online_env.step(action)
         # #show the current observation        
         # img1 = next_obs["observation.images.front"][0].permute(1,2,0).cpu().numpy()

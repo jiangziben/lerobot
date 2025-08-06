@@ -42,8 +42,8 @@ def eval_policy(env, policy, n_episodes):
         episode_reward = 0.0
         while True:
             action = policy.select_action(obs)
+            action[:,3:6] = 0.0
             obs, reward, terminated, truncated, _ = env.step(action)
-            # action[:,3:6] = 0.0
             episode_reward += reward
             if terminated or truncated:
                 print(f"Episode reward: {reward}")
@@ -64,21 +64,11 @@ def main(cfg: TrainRLServerPipelineConfig):
     policy_path = Path(config_path).parent
     cfg.policy.pretrained_path = policy_path
     env_cfg = cfg.env
-    env = make_robot_env(env_cfg,use_gamepad=False,render_mode="human")
+    env = make_robot_env(env_cfg,use_gamepad=False,render_mode="human",random_actor=True)
     policy =  make_policy(
         cfg=cfg.policy,
         env_cfg=cfg.env
     )
-    # dataset_cfg = cfg.dataset
-    # dataset = LeRobotDataset(repo_id=dataset_cfg.repo_id)
-    # dataset_meta = dataset.meta
-    # policy = make_policy(
-    #     cfg=cfg.policy,
-    #     # env_cfg=cfg.env,
-    #     ds_meta=dataset_meta,
-    # )
-    # policy.from_pretrained(env_cfg.pretrained_policy_name_or_path)
-
     policy = policy.eval()
 
     eval_policy(env, policy=policy, n_episodes=100)
