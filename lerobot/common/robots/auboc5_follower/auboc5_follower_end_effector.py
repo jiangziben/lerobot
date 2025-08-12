@@ -1,0 +1,217 @@
+# !/usr/bin/env python
+
+# Copyright 2025 The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import logging
+import time
+from typing import Any
+
+import numpy as np
+
+from lerobot.common.cameras import make_cameras_from_configs
+from lerobot.common.errors import DeviceNotConnectedError
+from lerobot.common.model.kinematics import RobotKinematics
+from lerobot.common.motors import Motor, MotorNormMode, MotorsBus
+from lerobot.common.motors.feetech import FeetechMotorsBus
+
+from . import AUBOC5Follower
+from .config_auboc5_follower import AUBOC5FollowerEndEffectorConfig
+
+logger = logging.getLogger(__name__)
+import pyaubo_sdk
+
+
+class AUBOC5FollowerEndEffector(AUBOC5Follower):
+    """
+    AUBOC5Follower robot with end-effector space control.
+
+    This robot inherits from AUBOC5Follower but transforms actions from
+    end-effector space to joint space before sending them to the motors.
+    """
+
+    config_class = AUBOC5FollowerEndEffectorConfig
+    name = "auboc5_follower_end_effector"
+
+    def __init__(self, config: AUBOC5FollowerEndEffectorConfig):
+        super().__init__(config)
+        norm_mode_body = MotorNormMode.DEGREES
+        self.bus = MotorsBus(
+            port=self.config.port,
+            motors={
+                "1": Motor(1, "", norm_mode_body),
+                "2": Motor(2, "", norm_mode_body),
+                "3": Motor(3, "", norm_mode_body),
+                "4": Motor(4, "", norm_mode_body),
+                "5": Motor(5, "", norm_mode_body),
+                "6": Motor(6, "", norm_mode_body),
+                "7": Motor(7, "", MotorNormMode.RANGE_0_100),
+            },
+            calibration=self.calibration,
+        )
+
+
+        self.cameras = make_cameras_from_configs(config.cameras)
+
+        self.config = config
+
+        # Store the bounds for end-effector position
+        self.end_effector_bounds = self.config.end_effector_bounds
+
+        self.current_ee_pos = None
+        self.current_joint_pos = None
+
+        self.robot_rpc_client = pyaubo_sdk.RpcClient()
+        self.robot_ip = "192.168.31.35"  # 服务器 IP 地址
+        self.robot_port = 30004  # 端口号
+        self.dt = 0.1
+        
+    @property
+    def action_features(self) -> dict[str, Any]:
+        """
+        Define action features for end-effector control.
+        Returns dictionary with dtype, shape, and names.
+        """
+        return {
+            "dtype": "float32",
+            "shape": (4,),
+            "names": {"delta_x": 0, "delta_y": 1, "delta_z": 2, "gripper": 3},
+        }
+    
+    def connect(self, calibrate: bool = True) -> None:
+        super().connect(calibrate)
+        robot_name = self.robot_rpc_client.getRobotNames()[0]  # 接口调用: 获取机器人的名字
+        self.robot_interface = self.robot_rpc_client.getRobotInterface(robot_name)
+        #设置传感器类型
+        self.robot_interface.getRobotConfig().selectTcpForceSensor("xinjingcheng")
+
+        #设置负载参数
+        weight = 0.847
+        self.robot_interface.getRobotConfig().setPayload(weight,[0,0,0], [0,0,0], [0,0,0,0,0,0,0,0,0])
+
+        #设置传感器安装位姿
+        sensor_pose = [ 0, 0, -0.132, 0, 0, -0.785 ]
+        self.robot_interface.getRobotConfig().setTcpForceSensorPose(sensor_pose)
+
+        # #设置tcp偏置
+        # tcp_offset = [0, 0, 0.0, 0, 0, 0]
+        # robot_interface.getRobotConfig().setTcpOffset(tcp_offset)
+        
+        #设置力控参数
+        admittance_m=[30.0,30.0,30.0,1.0,1.0,1.0]
+        admittance_d=[1000.0,1000.0,2000.0,10.0,10.0,10.0]
+        admittance_k= [0.0,0.0,0.0,0.0,0.0,0.0]
+        self.robot_interface.getForceControl().setDynamicModel(admittance_m, admittance_d, admittance_k)
+        #设置目标
+        compliance = [True] * 6
+        compliance[0:3] = [False]*3
+        target_wrench = [0.0] * 6
+        speed_limits = [2.0] * 6
+        feature = [0.0] * 6
+        self.robot_interface.getForceControl().setTargetForce(feature,compliance, target_wrench, speed_limits, pyaubo_sdk.TaskFrameType.TOOL_FORCE)
+        #设置机械臂的速度比率
+        self.mc = self.robot_interface.getMotionControl()
+        self.mc.setSpeedFraction(0.3)
+        self.robot_interface.getForceControl().fcEnable()
+        print("开启力控成功！")
+
+    def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
+        """
+        Transform action from end-effector space to joint space and send to motors.
+
+        Args:
+            action: Dictionary with keys 'delta_x', 'delta_y', 'delta_z' for end-effector control
+                   or a numpy array with [delta_x, delta_y, delta_z]
+
+        Returns:
+            The joint-space action that was sent to the motors
+        """
+
+        if not self.is_connected:
+            raise DeviceNotConnectedError(f"{self} is not connected.")
+
+        # Convert action to numpy array if not already
+        if isinstance(action, dict):
+            if all(k in action for k in ["delta_x", "delta_y", "delta_z"]):
+                delta_ee = np.array(
+                    [
+                        action["delta_x"] * self.config.end_effector_step_sizes["x"],
+                        action["delta_y"] * self.config.end_effector_step_sizes["y"],
+                        action["delta_z"] * self.config.end_effector_step_sizes["z"],
+                    ],
+                    dtype=np.float32,
+                )
+                if "gripper" not in action:
+                    action["gripper"] = [1.0]
+                action = np.append(delta_ee, action["gripper"])
+            else:
+                logger.warning(
+                    f"Expected action keys 'delta_x', 'delta_y', 'delta_z', got {list(action.keys())}"
+                )
+                action = np.zeros(4, dtype=np.float32)
+
+        if self.current_joint_pos is None:
+            # Read current joint positions
+            self.current_joint_pos = np.array(self.robot_interface.getRobotState().getJointPositions())
+
+        # Calculate current end-effector position using forward kinematics
+        self.current_ee_pos = self.robot_interface.getRobotState().getTcpPose()
+
+        # Set desired end-effector position by adding delta
+        desired_ee_pos = self.current_ee_pos.copy()  # Keep orientation
+
+        # Add delta to position and clip to bounds
+        desired_ee_pos[:3] = self.current_ee_pos[:3] + action[:3]
+        if self.end_effector_bounds is not None:
+            desired_ee_pos[:3] = np.clip(
+                desired_ee_pos[:3],
+                self.end_effector_bounds["min"],
+                self.end_effector_bounds["max"],
+            )
+
+        # Move the robot to the desired end-effector position
+        # self.mc.moveLine(desired_ee_pos, 0.0, 0.0, 0.025, self.dt)
+
+        return desired_ee_pos
+
+    def get_observation(self) -> dict[str, Any]:
+        if not self.is_connected:
+            raise DeviceNotConnectedError(f"{self} is not connected.")
+
+        # Read arm position
+        start = time.perf_counter()
+        joint_pos = self.robot_interface.getRobotState().getJointPositions()
+        obs_dict = {f"i":joint_pos[i] for i in range(len(joint_pos))}
+        obs_dict = {f"{motor}.pos": val for motor, val in obs_dict.items()}
+        obs_dict["7.pos"] = 0.0
+        dt_ms = (time.perf_counter() - start) * 1e3
+        logger.debug(f"{self} read state: {dt_ms:.1f}ms")
+
+        # # Capture images from cameras
+        # for cam_key, cam in self.cameras.items():
+        #     start = time.perf_counter()
+        #     obs_dict[cam_key] = cam.async_read()
+        #     dt_ms = (time.perf_counter() - start) * 1e3
+        #     logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+
+        return obs_dict
+
+    def reset(self):
+        self.current_ee_pos = None
+        self.current_joint_pos = None
+
+    def disconnect(self):
+        self.robot_interface.getForceControl().fcDisable()
+        print("关闭力控成功！")
+        super().disconnect()
