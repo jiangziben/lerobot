@@ -38,7 +38,7 @@
         "control_mode": "gamepad"
     },
     "name": "sapien_sim",
-    "mode": "record",
+    "mode": null,
     "repo_id": "charging_task_hil_relative",
     "dataset_root": null,
     "task": "ChargingTaskGamepad-v0",

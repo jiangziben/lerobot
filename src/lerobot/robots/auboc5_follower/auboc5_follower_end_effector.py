@@ -20,11 +20,11 @@ from typing import Any
 
 import numpy as np
 
-from lerobot.common.cameras import make_cameras_from_configs
-from lerobot.common.errors import DeviceNotConnectedError
-from lerobot.common.model.kinematics import RobotKinematics
-from lerobot.common.motors import Motor, MotorNormMode, MotorsBus
-from lerobot.common.motors.feetech import FeetechMotorsBus
+from lerobot.cameras import make_cameras_from_configs
+from lerobot.errors import DeviceNotConnectedError
+from lerobot.model.kinematics import RobotKinematics
+from lerobot.motors import Motor, MotorNormMode
+from lerobot.motors.feetech import FeetechMotorsBus
 
 from . import AUBOC5Follower
 from .config_auboc5_follower import AUBOC5FollowerEndEffectorConfig
@@ -47,9 +47,7 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
     def __init__(self, config: AUBOC5FollowerEndEffectorConfig):
         super().__init__(config)
         norm_mode_body = MotorNormMode.DEGREES
-        self.bus = MotorsBus(
-            port=self.config.port,
-            motors={
+        self.motors = {
                 "1": Motor(1, "", norm_mode_body),
                 "2": Motor(2, "", norm_mode_body),
                 "3": Motor(3, "", norm_mode_body),
@@ -58,9 +56,6 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
                 "6": Motor(6, "", norm_mode_body),
                 "7": Motor(7, "", MotorNormMode.RANGE_0_100),
             },
-            calibration=self.calibration,
-        )
-
 
         self.cameras = make_cameras_from_configs(config.cameras)
 
@@ -70,10 +65,9 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         self.end_effector_bounds = self.config.end_effector_bounds
 
         self.current_ee_pos = None
-        self.current_joint_pos = None
 
         self.robot_rpc_client = pyaubo_sdk.RpcClient()
-        self.robot_ip = "192.168.31.35"  # 服务器 IP 地址
+        self.robot_ip = "192.168.3.12"  # 服务器 IP 地址
         self.robot_port = 30004  # 端口号
         self.dt = 0.1
         
@@ -110,21 +104,32 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         
         #设置力控参数
         admittance_m=[30.0,30.0,30.0,1.0,1.0,1.0]
-        admittance_d=[1000.0,1000.0,2000.0,10.0,10.0,10.0]
+        admittance_d=[1000.0,1000.0,2000.0,50.0,50.0,50.0]
         admittance_k= [0.0,0.0,0.0,0.0,0.0,0.0]
         self.robot_interface.getForceControl().setDynamicModel(admittance_m, admittance_d, admittance_k)
         #设置目标
         compliance = [True] * 6
-        compliance[0:3] = [False]*3
         target_wrench = [0.0] * 6
         speed_limits = [2.0] * 6
         feature = [0.0] * 6
         self.robot_interface.getForceControl().setTargetForce(feature,compliance, target_wrench, speed_limits, pyaubo_sdk.TaskFrameType.TOOL_FORCE)
         #设置机械臂的速度比率
         self.mc = self.robot_interface.getMotionControl()
-        self.mc.setSpeedFraction(0.3)
+        # self.mc.setSpeedFraction(1.0)
         self.robot_interface.getForceControl().fcEnable()
         print("开启力控成功！")
+        # # 开启 servo 模式
+        # self.robot_interface.getMotionControl().setServoMode(True)
+        # i = 0
+        # while not self.mc.isServoModeEnabled():
+        #     i = i + 1
+        #     if i > 5:
+        #         print("开启Servo模式失败！当前的Servo模式是： ", self.mc.isServoModeEnabled())
+        #         return -1
+        #     time.sleep(0.005)
+        # print("开启Servo模式成功！当前的Servo模式是： ", self.mc.isServoModeEnabled())
+        # self.csv_file = open("ee_velocity.csv", "w")
+        # self.csv_file.write("speed_x,speed_y,speed_z,current_ee_vel_x,current_ee_vel_y,current_ee_vel_z\n")
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
         """
@@ -161,27 +166,46 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
                 )
                 action = np.zeros(4, dtype=np.float32)
 
-        if self.current_joint_pos is None:
-            # Read current joint positions
-            self.current_joint_pos = np.array(self.robot_interface.getRobotState().getJointPositions())
-
         # Calculate current end-effector position using forward kinematics
         self.current_ee_pos = self.robot_interface.getRobotState().getTcpPose()
 
         # Set desired end-effector position by adding delta
         desired_ee_pos = self.current_ee_pos.copy()  # Keep orientation
 
+        # frame transform
+        frame = self.current_ee_pos.copy()
+        frame[0:3] = [0,0,0]
+        delta_ee_base = np.zeros(6, dtype=np.float32)
+        delta_ee_base[:3] = action[:3]  # Only position change
+        delta_ee_base = self.robot_rpc_client.getMath().poseTrans(frame,delta_ee_base)
+
         # Add delta to position and clip to bounds
-        desired_ee_pos[:3] = self.current_ee_pos[:3] + action[:3]
+        desired_ee_pos[:3] = np.array(self.current_ee_pos[:3]) + np.array(delta_ee_base[:3])
         if self.end_effector_bounds is not None:
             desired_ee_pos[:3] = np.clip(
                 desired_ee_pos[:3],
                 self.end_effector_bounds["min"],
                 self.end_effector_bounds["max"],
             )
+        delta_ee_base[:3] = np.array(desired_ee_pos[:3]) - np.array(self.current_ee_pos[:3])
+        speed = np.zeros(6, dtype=np.float32)
+        current_ee_vel = self.robot_interface.getRobotState().getTcpSpeed()
+        speed[:3] = np.array(delta_ee_base[:3]) / self.dt # Convert to speed for motion control
+        speed[:3] = np.clip(speed[:3], -0.25, 0.25)  # Limit speed to [-1, 1]
+        
+        # Move the robot to the desired end-effector position        
+        self.mc.speedLine(speed,5.0, self.dt)
+        # self.mc.servoCartesian(desired_ee_pos,0.0,0.0,self.dt,0.0,0.0)
+        
+        print("desired_ee_pos:", desired_ee_pos)
+        print("current_ee_pos:", self.current_ee_pos)
+        print("action:", action)
+        print("speed:", speed)
+        print("current_ee_vel:", current_ee_vel)
+        print("max_tcp_speed:", self.robot_interface.getRobotConfig().getLimitTcpMaxSpeed())
+        # # 将速度保存到csv中
+        # self.csv_file.write(f"{speed[0]},{speed[1]},{speed[2]},{current_ee_vel[0]},{current_ee_vel[1]},{current_ee_vel[2]}\n")
 
-        # Move the robot to the desired end-effector position
-        # self.mc.moveLine(desired_ee_pos, 0.0, 0.0, 0.025, self.dt)
 
         return desired_ee_pos
 
@@ -192,8 +216,7 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         # Read arm position
         start = time.perf_counter()
         joint_pos = self.robot_interface.getRobotState().getJointPositions()
-        obs_dict = {f"i":joint_pos[i] for i in range(len(joint_pos))}
-        obs_dict = {f"{motor}.pos": val for motor, val in obs_dict.items()}
+        obs_dict = {f"{i+1}.pos":joint_pos[i] for i in range(len(joint_pos))}
         obs_dict["7.pos"] = 0.0
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
@@ -209,9 +232,18 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
 
     def reset(self):
         self.current_ee_pos = None
-        self.current_joint_pos = None
 
     def disconnect(self):
         self.robot_interface.getForceControl().fcDisable()
         print("关闭力控成功！")
+        # # 关闭 servo 模式
+        # self.mc.setServoMode(False)
+        # i = 0
+        # while self.mc.isServoModeEnabled():
+        #     i = i + 1
+        #     if i > 5:
+        #         print("关闭Servo模式失败！当前的Servo模式是： ", self.mc.isServoModeEnabled())
+        #         return -1
+        #     time.sleep(0.005)
+        # print("关闭Servo模式成功！当前的Servo模式是： ", self.mc.isServoModeEnabled())
         super().disconnect()

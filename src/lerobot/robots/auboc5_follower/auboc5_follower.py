@@ -19,10 +19,10 @@ import time
 from functools import cached_property
 from typing import Any
 
-from lerobot.common.cameras.utils import make_cameras_from_configs
-from lerobot.common.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
-from lerobot.common.motors import Motor, MotorCalibration, MotorNormMode, MotorsBus
-from lerobot.common.motors.feetech import (
+from lerobot.cameras.utils import make_cameras_from_configs
+from lerobot.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
+from lerobot.motors import Motor, MotorCalibration, MotorNormMode, MotorsBus
+from lerobot.motors.feetech import (
     FeetechMotorsBus,
     OperatingMode,
 )
@@ -47,9 +47,7 @@ class AUBOC5Follower(Robot):
         super().__init__(config)
         self.config = config
         norm_mode_body = MotorNormMode.DEGREES
-        self.bus = MotorsBus(
-            port=self.config.port,
-            motors={
+        self.motors = {
                 "1": Motor(1, "", norm_mode_body),
                 "2": Motor(2, "", norm_mode_body),
                 "3": Motor(3, "", norm_mode_body),
@@ -58,8 +56,6 @@ class AUBOC5Follower(Robot):
                 "6": Motor(6, "", norm_mode_body),
                 "7": Motor(7, "", MotorNormMode.RANGE_0_100),
             },
-            calibration=self.calibration,
-        )
         self.cameras = make_cameras_from_configs(config.cameras)
         self.robot_rpc_client = pyaubo_sdk.RpcClient()
         self.robot_ip = "192.168.31.35"  # 服务器 IP 地址
@@ -69,7 +65,7 @@ class AUBOC5Follower(Robot):
 
     @property
     def _motors_ft(self) -> dict[str, type]:
-        return {f"{motor}.pos": float for motor in self.bus.motors}
+        return {f"{motor}.pos": float for motor in self.motors}
 
     @property
     def _cameras_ft(self) -> dict[str, tuple]:
@@ -87,7 +83,7 @@ class AUBOC5Follower(Robot):
 
     @property
     def is_connected(self) -> bool:
-        return self.robot_rpc_client.hasConnected() and all(cam.is_connected for cam in self.cameras.values())
+        return self.robot_rpc_client.hasConnected() #and all(cam.is_connected for cam in self.cameras.values())
 
     def connect(self, calibrate: bool = True) -> None:
         """
@@ -128,7 +124,7 @@ class AUBOC5Follower(Robot):
         # Read arm position
         start = time.perf_counter()
         joint_pos = self.robot_interface.getRobotState().getJointPositions()
-        obs_dict = {f"i":joint_pos[i] for i in range(len(joint_pos))}
+        obs_dict = {f"{i+1}":joint_pos[i] for i in range(len(joint_pos))}
         obs_dict = {f"{motor}.pos": val for motor, val in obs_dict.items()}
         obs_dict["7.pos"] = 0.0
         dt_ms = (time.perf_counter() - start) * 1e3

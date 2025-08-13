@@ -57,6 +57,7 @@ from lerobot.robots import (  # noqa: F401
     RobotConfig,
     make_robot_from_config,
     so100_follower,
+    auboc5_follower
 )
 from lerobot.teleoperators import (
     gamepad,  # noqa: F401
@@ -252,8 +253,10 @@ class RobotEnv(gym.Env):
         # Episode tracking.
         self.current_step = 0
         self.episode_data = None
-
-        self._joint_names = [f"{key}.pos" for key in self.robot.bus.motors]
+        if robot.name == 'auboc5_follower_end_effector':
+            self._joint_names = [f"{key}.pos" for key in self.robot.motors[0]]
+        else:
+            self._joint_names = [f"{key}.pos" for key in self.robot.bus.motors]
         self._image_keys = self.robot.cameras.keys()
 
         self.current_observation = None
@@ -267,8 +270,8 @@ class RobotEnv(gym.Env):
         obs_dict = self.robot.get_observation()
         joint_positions = np.array([obs_dict[name] for name in self._joint_names])
 
-        images = {key: obs_dict[key] for key in self._image_keys}
-        self.current_observation = {"agent_pos": joint_positions, "pixels": images}
+        # images = {key: obs_dict[key] for key in self._image_keys}
+        self.current_observation = {"agent_pos": joint_positions, "pixels": []} #images
 
     def _setup_spaces(self):
         """
@@ -423,7 +426,7 @@ class AddJointVelocityToObservation(gym.ObservationWrapper):
     and extends the observation space to include these velocities.
     """
 
-    def __init__(self, env, joint_velocity_limits=100.0, fps=30, num_dof=6):
+    def __init__(self, env, joint_velocity_limits=100.0, fps=30, num_dof=7):
         """
         Initialize the joint velocity wrapper.
 
@@ -518,10 +521,16 @@ class AddCurrentToObservation(gym.ObservationWrapper):
         Returns:
             The modified observation with current values.
         """
-        present_current_dict = self.env.unwrapped.robot.bus.sync_read("Present_Current")
-        present_current_observation = np.array(
-            [present_current_dict[name] for name in self.env.unwrapped.robot.bus.motors]
-        )
+        if self.env.unwrapped.robot.name == "auboc5_follower_end_effector":
+            joint_pos = self.env.unwrapped.robot.robot_interface.getRobotState().getJointPositions()
+            present_current_observation = np.array(
+               joint_pos, dtype=np.float32
+            )
+        else:
+            present_current_dict = self.env.unwrapped.robot.bus.sync_read("Present_Current")
+            present_current_observation = np.array(
+                [present_current_dict[name] for name in self.env.unwrapped.robot.bus.motors]
+            )
         observation["agent_pos"] = np.concatenate(
             [observation["agent_pos"], present_current_observation], axis=-1
         )
@@ -843,27 +852,27 @@ class ResetWrapper(gym.Wrapper):
             The initial observation and info from the wrapped environment.
         """
         start_time = time.perf_counter()
-        if self.reset_pose is not None:
-            log_say("Reset the environment.", play_sounds=True)
-            reset_follower_position(self.unwrapped.robot, self.reset_pose)
-            log_say("Reset the environment done.", play_sounds=True)
+        # if self.reset_pose is not None:
+        #     log_say("Reset the environment.", play_sounds=True)
+        #     reset_follower_position(self.unwrapped.robot, self.reset_pose)
+        #     log_say("Reset the environment done.", play_sounds=True)
 
-            if hasattr(self.env, "robot_leader"):
-                self.env.robot_leader.bus.sync_write("Torque_Enable", 1)
-                log_say("Reset the leader robot.", play_sounds=True)
-                reset_follower_position(self.env.robot_leader, self.reset_pose)
-                log_say("Reset the leader robot done.", play_sounds=True)
-        else:
-            log_say(
-                f"Manually reset the environment for {self.reset_time_s} seconds.",
-                play_sounds=True,
-            )
-            start_time = time.perf_counter()
-            while time.perf_counter() - start_time < self.reset_time_s:
-                action = self.env.robot_leader.get_action()
-                self.unwrapped.robot.send_action(action)
+        #     if hasattr(self.env, "robot_leader"):
+        #         self.env.robot_leader.bus.sync_write("Torque_Enable", 1)
+        #         log_say("Reset the leader robot.", play_sounds=True)
+        #         reset_follower_position(self.env.robot_leader, self.reset_pose)
+        #         log_say("Reset the leader robot done.", play_sounds=True)
+        # else:
+        #     log_say(
+        #         f"Manually reset the environment for {self.reset_time_s} seconds.",
+        #         play_sounds=True,
+        #     )
+        #     start_time = time.perf_counter()
+        #     while time.perf_counter() - start_time < self.reset_time_s:
+        #         action = self.env.robot_leader.get_action()
+        #         self.unwrapped.robot.send_action(action)
 
-            log_say("Manual reset of the environment done.", play_sounds=True)
+        #     log_say("Manual reset of the environment done.", play_sounds=True)
 
         busy_wait(self.reset_time_s - (time.perf_counter() - start_time))
 
@@ -1091,10 +1100,10 @@ class EEObservationWrapper(gym.ObservationWrapper):
             dtype=np.float32,
         )
 
-        self.kinematics = RobotKinematics(
-            urdf_path=env.unwrapped.robot.config.urdf_path,
-            target_frame_name=env.unwrapped.robot.config.target_frame_name,
-        )
+        # self.kinematics = RobotKinematics(
+        #     urdf_path=env.unwrapped.robot.config.urdf_path,
+        #     target_frame_name=env.unwrapped.robot.config.target_frame_name,
+        # )
 
     def observation(self, observation):
         """
@@ -1107,8 +1116,10 @@ class EEObservationWrapper(gym.ObservationWrapper):
             Enhanced observation with end-effector pose information.
         """
         current_joint_pos = self.unwrapped.current_observation["agent_pos"]
-
-        current_ee_pos = self.kinematics.forward_kinematics(current_joint_pos)[:3, 3]
+        if self.unwrapped.robot.name == "auboc5_follower_end_effector":
+            current_ee_pos = np.array(self.unwrapped.robot.robot_interface.getRobotState().getTcpPose()[0:3])
+        else:
+            current_ee_pos = self.kinematics.forward_kinematics(current_joint_pos)[:3, 3]
         observation["agent_pos"] = np.concatenate([observation["agent_pos"], current_ee_pos], -1)
         return observation
 
@@ -1598,6 +1609,11 @@ class GamepadControlWrapper(gym.Wrapper):
         self.teleop_device.gamepad.update()  # Ensure gamepad state is fresh
         intervention_is_active = self.teleop_device.gamepad.should_intervene()
         episode_end_status = self.teleop_device.gamepad.get_episode_end_status()
+        should_quit_flag = self.teleop_device.gamepad.should_quit()
+        if should_quit_flag:
+            self.close()
+            print("Exiting gamepad control wrapper and program.")
+            exit(0)
 
         terminate_episode = episode_end_status is not None
         success = episode_end_status == "success"
@@ -2255,7 +2271,7 @@ def main(cfg: EnvConfig):
 
     num_episode = 0
     successes = []
-    while num_episode < 10:
+    while num_episode < 20:
         start_loop_s = time.perf_counter()
         # Sample a new random action from the robot's action space.
         new_random_action = env.action_space.sample()

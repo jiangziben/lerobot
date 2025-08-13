@@ -91,7 +91,6 @@ class InputController:
         elif self.close_gripper_command:
             return "close"
 
-
 class KeyboardController(InputController):
     """Generate motion deltas from keyboard input."""
 
@@ -256,12 +255,14 @@ class GamepadController(InputController):
             if event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 3:
                     self.episode_end_status = "success"
-                # A button (1) for failure
-                elif event.button == 1:
-                    self.episode_end_status = "failure"
-                # X button (0) for rerecord
+                # A button (0) for failure
                 elif event.button == 0:
+                    self.episode_end_status = "failure"
+                # X button (2) for rerecord
+                elif event.button == 2:
                     self.episode_end_status = "rerecord_episode"
+                elif event.button == 1:  # B button (1) for exit
+                    self.running = False
 
                 # RB button (6) for closing gripper
                 elif event.button == 6:
@@ -296,20 +297,21 @@ class GamepadController(InputController):
             # Read joystick axes
             # Left stick X and Y (typically axes 0 and 1)
             x_input = self.joystick.get_axis(0)  # Left/Right
-            y_input = self.joystick.get_axis(1)  # Up/Down (often inverted)
-
+            y_up_input = self.joystick.get_axis(2)
+            y_down_input = self.joystick.get_axis(5) # Up/Down
             # Right stick Y (typically axis 3 or 4)
-            z_input = self.joystick.get_axis(3)  # Up/Down for Z
+            z_input = self.joystick.get_axis(1)  # Up/Down for Z
 
             # Apply deadzone to avoid drift
             x_input = 0 if abs(x_input) < self.deadzone else x_input
-            y_input = 0 if abs(y_input) < self.deadzone else y_input
+            y_up_input = 0 if abs(y_up_input) < self.deadzone else y_up_input
+            y_down_input = 0 if abs(y_down_input) < self.deadzone else y_down_input
             z_input = 0 if abs(z_input) < self.deadzone else z_input
 
             # Calculate deltas (note: may need to invert axes depending on controller)
-            delta_x = -x_input * self.x_step_size  # Forward/backward
-            delta_y = y_input * self.y_step_size  # Left/right
-            delta_z = -z_input * self.z_step_size  # Up/down
+            delta_x = -x_input * self.x_step_size  
+            delta_y = (y_up_input - y_down_input) * 0.5 * self.y_step_size  
+            delta_z = -z_input * self.z_step_size  
 
             return delta_x, delta_y, delta_z
 

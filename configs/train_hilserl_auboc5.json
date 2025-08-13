@@ -198,7 +198,6 @@
             "learner": "threads"
         }
     },
-    "type":"gym_manipulator",
     "env": {
         "type": "gym_manipulator",
         "robot": {

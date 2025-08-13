@@ -17,7 +17,7 @@
             "name": "learner",
             "type": "debugpy",
             "request": "launch",
-            "program": "lerobot/scripts/rl/learner.py",
+            "program": "src/lerobot/scripts/rl/learner.py",
             "console": "integratedTerminal",
             "args": "--config_path=configs/train_gym_hil_env.json",
             "justMyCode": false,
@@ -27,7 +27,7 @@
             "name": "actor",
             "type": "debugpy",
             "request": "launch",
-            "program": "lerobot/scripts/rl/actor.py",
+            "program": "src/lerobot/scripts/rl/actor.py",
             "console": "integratedTerminal",
             "args": "--config_path=configs/train_gym_hil_env.json",
             "justMyCode": false,
@@ -37,10 +37,10 @@
             "name": "actor_resume",
             "type": "debugpy",
             "request": "launch",
-            "program": "lerobot/scripts/rl/actor.py",
+            "program": "src/lerobot/scripts/rl/actor.py",
             "console": "integratedTerminal",
             "args": [
-                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-07-10/20-18-30_default/checkpoints/last/pretrained_model/train_config.json",
+                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-05/14-11-18_default/checkpoints/last/pretrained_model/train_config.json",
                 "--resume=true"
             ],
             "justMyCode": false,
@@ -50,10 +50,10 @@
             "name": "learner_resume",
             "type": "debugpy",
             "request": "launch",
-            "program": "lerobot/scripts/rl/learner.py",
+            "program": "src/lerobot/scripts/rl/learner.py",
             "console": "integratedTerminal",
             "args": [
-                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-07-10/20-18-30_default/checkpoints/last/pretrained_model/train_config.json",
+                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-05/14-11-18_default/checkpoints/last/pretrained_model/train_config.json",
                 "--resume=true"
             ],
             "justMyCode": false,
@@ -63,9 +63,9 @@
             "name": "eval",
             "type": "debugpy",
             "request": "launch",
-            "program": "lerobot/scripts/rl/eval_policy.py",
+            "program": "src/lerobot/scripts/rl/eval_policy.py",
             "console": "integratedTerminal",
-            "args": "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-07-10/20-18-30_default/checkpoints/last/pretrained_model/train_config.json",
+            "args": "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-05/14-11-18_default/checkpoints/last/pretrained_model/train_config.json",
             "justMyCode": false,
             "cwd": "${workspaceFolder}",
         },
@@ -73,7 +73,7 @@
             "name": "record",
             "type": "debugpy",
             "request": "launch",
-            "program": "lerobot/scripts/rl/gym_manipulator.py",
+            "program": "src/lerobot/scripts/rl/gym_manipulator.py",
             "console": "integratedTerminal",
             "args": [
                 "--config_path=/home/gsmp/extra_home/lerobot/configs/gym_hil_env.json"
@@ -82,10 +82,22 @@
             "cwd": "${workspaceFolder}",
         },
         {
+            "name": "record_real",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/lerobot/scripts/rl/gym_manipulator.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config_path=/home/gsmp/extra_home/lerobot/configs/real_hil_env.json"
+            ],
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },        
+        {
             "name": "Python Debugger: Current File with Arguments",
             "type": "debugpy",
             "request": "launch",
-            "program": "lerobot/scripts/train.py",
+            "program": "src/lerobot/scripts/train.py",
             "console": "integratedTerminal",
             "args": [
                 "--policy.path=lerobot/smolvla_base",

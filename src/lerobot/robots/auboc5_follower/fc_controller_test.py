@@ -71,7 +71,6 @@ def force_control():
     robot_interface.getForceControl().setDynamicModel(admittance_m, admittance_d, admittance_k)
     #设置目标
     compliance = [True] * 6
-    compliance[0:3] = [False]*3
     target_wrench = [0.0] * 6
     speed_limits = [2.0] * 6
     feature = [0.0] * 6
