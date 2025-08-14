@@ -31,7 +31,7 @@ from .config_auboc5_follower import AUBOC5FollowerEndEffectorConfig
 
 logger = logging.getLogger(__name__)
 import pyaubo_sdk
-
+import math
 
 class AUBOC5FollowerEndEffector(AUBOC5Follower):
     """
@@ -63,8 +63,6 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
 
         # Store the bounds for end-effector position
         self.end_effector_bounds = self.config.end_effector_bounds
-
-        self.current_ee_pos = None
 
         self.robot_rpc_client = pyaubo_sdk.RpcClient()
         self.robot_ip = "192.168.3.12"  # 服务器 IP 地址
@@ -130,6 +128,8 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         # print("开启Servo模式成功！当前的Servo模式是： ", self.mc.isServoModeEnabled())
         # self.csv_file = open("ee_velocity.csv", "w")
         # self.csv_file.write("speed_x,speed_y,speed_z,current_ee_vel_x,current_ee_vel_y,current_ee_vel_z\n")
+        # self.force_csv_file = open("force.csv", "w")
+        # self.force_csv_file.write("force_x,force_y,force_z,torque_x,torque_y,torque_z,force_x_tcp,force_y_tcp,force_z_tcp,torque_x_tcp,torque_y_tcp,torque_z_tcp\n")
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
         """
@@ -167,27 +167,27 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
                 action = np.zeros(4, dtype=np.float32)
 
         # Calculate current end-effector position using forward kinematics
-        self.current_ee_pos = self.robot_interface.getRobotState().getTcpPose()
+        current_ee_pos = self.robot_interface.getRobotState().getTcpPose()
 
         # Set desired end-effector position by adding delta
-        desired_ee_pos = self.current_ee_pos.copy()  # Keep orientation
+        desired_ee_pos = current_ee_pos.copy()  # Keep orientation
 
         # frame transform
-        frame = self.current_ee_pos.copy()
+        frame = current_ee_pos.copy()
         frame[0:3] = [0,0,0]
         delta_ee_base = np.zeros(6, dtype=np.float32)
         delta_ee_base[:3] = action[:3]  # Only position change
         delta_ee_base = self.robot_rpc_client.getMath().poseTrans(frame,delta_ee_base)
 
         # Add delta to position and clip to bounds
-        desired_ee_pos[:3] = np.array(self.current_ee_pos[:3]) + np.array(delta_ee_base[:3])
+        desired_ee_pos[:3] = np.array(current_ee_pos[:3]) + np.array(delta_ee_base[:3])
         if self.end_effector_bounds is not None:
             desired_ee_pos[:3] = np.clip(
                 desired_ee_pos[:3],
                 self.end_effector_bounds["min"],
                 self.end_effector_bounds["max"],
             )
-        delta_ee_base[:3] = np.array(desired_ee_pos[:3]) - np.array(self.current_ee_pos[:3])
+        delta_ee_base[:3] = np.array(desired_ee_pos[:3]) - np.array(current_ee_pos[:3])
         speed = np.zeros(6, dtype=np.float32)
         current_ee_vel = self.robot_interface.getRobotState().getTcpSpeed()
         speed[:3] = np.array(delta_ee_base[:3]) / self.dt # Convert to speed for motion control
@@ -198,14 +198,27 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         # self.mc.servoCartesian(desired_ee_pos,0.0,0.0,self.dt,0.0,0.0)
         
         print("desired_ee_pos:", desired_ee_pos)
-        print("current_ee_pos:", self.current_ee_pos)
+        print("current_ee_pos:", current_ee_pos)
         print("action:", action)
         print("speed:", speed)
         print("current_ee_vel:", current_ee_vel)
-        print("max_tcp_speed:", self.robot_interface.getRobotConfig().getLimitTcpMaxSpeed())
+        tcp_force = self.robot_interface.getRobotState().getTcpForce()
+        print("tcp_force:", tcp_force)
+        tcp_force_sensors = np.array(self.robot_interface.getRobotState().getTcpForceSensors())
+        #伴随矩阵
+        adjoint_matrix = np.zeros((6, 6), dtype=np.float32)
+        R = np.array([[math.cos(np.pi/4),math.sin(np.pi/4),0],[-math.sin(np.pi/4),math.cos(np.pi/4),0],[0,0,1]], dtype=np.float32)
+        adjoint_matrix[:3,:3] = R
+        adjoint_matrix[3:6,3:6] = R
+        tcp_force_sensors_tcp = adjoint_matrix @ tcp_force_sensors
+        print("tcp_force_sensors: ",tcp_force_sensors)
+        print("tcp_force_sensors_tcp: ",tcp_force_sensors_tcp)
         # # 将速度保存到csv中
         # self.csv_file.write(f"{speed[0]},{speed[1]},{speed[2]},{current_ee_vel[0]},{current_ee_vel[1]},{current_ee_vel[2]}\n")
-
+        # # 将tcp_force保存到csv中
+        # self.force_csv_file.write(f"{tcp_force_sensors[0]},{tcp_force_sensors[1]},{tcp_force_sensors[2]},{tcp_force_sensors[3]},{tcp_force_sensors[4]},{tcp_force_sensors[5]}, \
+        #                           {tcp_force_sensors_tcp[0]},{tcp_force_sensors_tcp[1]},{tcp_force_sensors_tcp[2]},{tcp_force_sensors_tcp[3]},{tcp_force_sensors_tcp[4]},{tcp_force_sensors_tcp[5]}\n")
+        # self.force_csv_file.flush()
 
         return desired_ee_pos
 
@@ -231,7 +244,21 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         return obs_dict
 
     def reset(self):
-        self.current_ee_pos = None
+        # Calculate current end-effector position using forward kinematics
+        current_ee_pos = self.robot_interface.getRobotState().getTcpPose()
+        delta_ee_base = np.zeros(6, dtype=np.float32)
+        delta_ee_base[:3] = [0,0,-0.1]  # Only position change
+        frame = current_ee_pos.copy()
+        desired_ee_base = self.robot_rpc_client.getMath().poseTrans(frame,delta_ee_base)
+        self.mc.moveLine(desired_ee_base,1.2, 0.25, 0, 0)
+        self.wait_arrival(self.robot_interface)
+        joint_angles = np.array([2.75,
+            -40.34,
+            126.55,
+            165.40,
+            84.76,
+            -45.59],dtype=np.float32) * (math.pi / 180)
+        super().send_action(joint_angles.tolist())
 
     def disconnect(self):
         self.robot_interface.getForceControl().fcDisable()

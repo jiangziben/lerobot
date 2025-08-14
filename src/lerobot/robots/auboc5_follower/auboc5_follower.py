@@ -31,6 +31,7 @@ from ..robot import Robot
 from ..utils import ensure_safe_goal_position
 from .config_auboc5_follower import AUBOC5FollowerConfig
 import pyaubo_sdk
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ class AUBOC5Follower(Robot):
         self.robot_port = 30004  # 端口号
         self.robot_interface = None
         self.mc = None
+        self.dt = 0.1
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -155,7 +157,7 @@ class AUBOC5Follower(Robot):
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
-        goal_pos = {key.removesuffix(".pos"): val for key, val in action.items() if key.endswith(".pos")}
+        goal_pos = {f"{i+1}": val for i,val in enumerate(action)}
 
         # Cap goal position when too far away from present position.
         # /!\ Slower fps expected due to reading from the follower.
@@ -163,8 +165,13 @@ class AUBOC5Follower(Robot):
             present_pos = self.robot_interface.getRobotState().getJointPositions()
             goal_present_pos = {goal_pos[str(i)]:val for i,val in enumerate(present_pos)}
             goal_pos = ensure_safe_goal_position(goal_present_pos, self.config.max_relative_target)
-
+        
         # Send goal position to the arm
+        q1 = [goal_pos[str(i+1)] for i in range(0, 6)]
+        self.mc.moveJoint(q1, 80 * (math.pi / 180), 60 * (math.pi / 180), 0, 0)
+
+        # 阻塞
+        self.wait_arrival(self.robot_interface)
         
         return {f"{motor}.pos": val for motor, val in goal_pos.items()}
 
@@ -177,3 +184,24 @@ class AUBOC5Follower(Robot):
         #     cam.disconnect()
 
         logger.info(f"{self} disconnected.")
+
+    def wait_arrival(self,robot_interface):
+        max_retry_count = 5
+        cnt = 0
+
+        # 接口调用: 获取当前的运动指令 ID
+        exec_id = robot_interface.getMotionControl().getExecId()
+
+        # 等待机械臂开始运动
+        while exec_id == -1:
+            if cnt > max_retry_count:
+                return -1
+            time.sleep(0.05)
+            cnt += 1
+            exec_id = robot_interface.getMotionControl().getExecId()
+
+        # 等待机械臂运动完成
+        while robot_interface.getMotionControl().getExecId() != -1:
+            time.sleep(0.05)
+
+        return 0
