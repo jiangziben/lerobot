@@ -191,12 +191,16 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         speed = np.zeros(6, dtype=np.float32)
         current_ee_vel = self.robot_interface.getRobotState().getTcpSpeed()
         speed[:3] = np.array(delta_ee_base[:3]) / self.dt # Convert to speed for motion control
-        speed[:3] = np.clip(speed[:3], -0.25, 0.25)  # Limit speed to [-1, 1]
+        speed[:3] = np.clip(speed[:3], -0.25, 0.25) 
         
-        # Move the robot to the desired end-effector position        
-        self.mc.speedLine(speed,5.0, self.dt)
+        # Move the robot to the desired end-effector position
+        # import time
+        # start = time.time()        
+        ret = self.mc.speedLine(speed,1.2, self.dt)
+        # used_time = time.time() - start
         # self.mc.servoCartesian(desired_ee_pos,0.0,0.0,self.dt,0.0,0.0)
-        
+        # print("ret: ",ret)
+        # print("used_time: ",used_time)
         print("desired_ee_pos:", desired_ee_pos)
         print("current_ee_pos:", current_ee_pos)
         print("action:", action)
@@ -234,12 +238,12 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
 
-        # # Capture images from cameras
-        # for cam_key, cam in self.cameras.items():
-        #     start = time.perf_counter()
-        #     obs_dict[cam_key] = cam.async_read()
-        #     dt_ms = (time.perf_counter() - start) * 1e3
-        #     logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+        # Capture images from cameras
+        for cam_key, cam in self.cameras.items():
+            start = time.perf_counter()
+            obs_dict[cam_key] = cam.async_read()
+            dt_ms = (time.perf_counter() - start) * 1e3
+            logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
 
         return obs_dict
 

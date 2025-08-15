@@ -264,14 +264,17 @@ class RobotEnv(gym.Env):
         self.use_gripper = use_gripper
 
         self._setup_spaces()
+        self.fig, self.axes =plt.subplots(2,1)
+        self.fig.set_size_inches(25,50)
+
 
     def _get_observation(self) -> dict[str, np.ndarray]:
         """Helper to convert a dictionary from bus.sync_read to an ordered numpy array."""
         obs_dict = self.robot.get_observation()
         joint_positions = np.array([obs_dict[name] for name in self._joint_names])
 
-        # images = {key: obs_dict[key] for key in self._image_keys}
-        self.current_observation = {"agent_pos": joint_positions, "pixels": []} #images
+        images = {key: obs_dict[key] for key in self._image_keys}
+        self.current_observation = {"agent_pos": joint_positions, "pixels": images} #images
 
     def _setup_spaces(self):
         """
@@ -399,13 +402,22 @@ class RobotEnv(gym.Env):
         """
         Render the current state of the environment by displaying the robot's camera feeds.
         """
-        import cv2
+        # import cv2
 
-        image_keys = [key for key in self.current_observation if "image" in key]
+        # image_keys = [key for key in self.current_observation["pixels"]]
 
-        for key in image_keys:
-            cv2.imshow(key, cv2.cvtColor(self.current_observation[key].numpy(), cv2.COLOR_RGB2BGR))
-            cv2.waitKey(1)
+        # for key in image_keys:
+            # cv2.imshow(key, cv2.cvtColor(self.current_observation["pixels"][key], cv2.COLOR_RGB2BGR))
+            # cv2.waitKey(1)
+        #show the current observation
+        self.axes[0].clear()
+        self.axes[0].axis("off")
+        self.axes[0].imshow(self.current_observation["pixels"]["front"])
+        self.axes[1].clear()
+        self.axes[1].axis("off")
+        self.axes[1].imshow(self.current_observation["pixels"]["wrist"])
+        plt.pause(0.01)
+
 
     def close(self):
         """

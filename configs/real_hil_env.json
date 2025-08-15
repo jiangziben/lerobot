@@ -5,15 +5,15 @@
         "port": "/dev/tty.usbmodem58760431631",
         "cameras": {
             "front": {
-                "type": "opencv",
-                "index_or_path": 0,
+                "type": "orbbec",
+                "serial_number_or_name": "0",
                 "height": 720,
                 "width": 1280,
                 "fps": 30
             },
             "wrist": {
-                "type": "opencv",
-                "index_or_path": 1,
+                "type": "orbbec",
+                "serial_number_or_name": "1",
                 "height": 720,
                 "width": 1280,
                 "fps": 30
@@ -42,7 +42,7 @@
         "use_gripper": false
     },
     "wrapper": {
-        "display_cameras": false,
+        "display_cameras": true,
         "add_joint_velocity_to_observation": true,
         "add_current_to_observation": true,
         "add_ee_pose_to_observation": true,

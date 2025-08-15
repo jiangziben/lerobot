@@ -85,7 +85,7 @@ class AUBOC5Follower(Robot):
 
     @property
     def is_connected(self) -> bool:
-        return self.robot_rpc_client.hasConnected() #and all(cam.is_connected for cam in self.cameras.values())
+        return self.robot_rpc_client.hasConnected() and all(cam.is_connected for cam in self.cameras.values())
 
     def connect(self, calibrate: bool = True) -> None:
         """
@@ -101,9 +101,9 @@ class AUBOC5Follower(Robot):
             print("RPC连接成功！")
             self.robot_rpc_client.login("aubo", "123456")  # 接口调用: 机械臂登录
 
-            # #连接相机
-            # for cam in self.cameras.values():
-            #     cam.connect()
+            #连接相机
+            for cam in self.cameras.values():
+                cam.connect()
 
             logger.info(f"{self} connected.")
         else:
@@ -132,12 +132,12 @@ class AUBOC5Follower(Robot):
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
 
-        # # Capture images from cameras
-        # for cam_key, cam in self.cameras.items():
-        #     start = time.perf_counter()
-        #     obs_dict[cam_key] = cam.async_read()
-        #     dt_ms = (time.perf_counter() - start) * 1e3
-        #     logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+        # Capture images from cameras
+        for cam_key, cam in self.cameras.items():
+            start = time.perf_counter()
+            obs_dict[cam_key] = cam.async_read()
+            dt_ms = (time.perf_counter() - start) * 1e3
+            logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
 
         return obs_dict
 

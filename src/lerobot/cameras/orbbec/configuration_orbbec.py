@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from ..configs import CameraConfig, ColorMode, Cv2Rotation
 
 
-@CameraConfig.register_subclass("intelrealsense")
+@CameraConfig.register_subclass("orbbec")
 @dataclass
 class OrbbecCameraConfig(CameraConfig):
     """Configuration class for Intel Orbbec cameras.

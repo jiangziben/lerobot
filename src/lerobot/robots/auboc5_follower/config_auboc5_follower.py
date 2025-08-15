@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from lerobot.cameras import CameraConfig
 
 from ..config import RobotConfig
-
+from lerobot.cameras.orbbec.configuration_orbbec import OrbbecCameraConfig  # noqa: F401
 
 @RobotConfig.register_subclass("auboc5_follower")
 @dataclass
