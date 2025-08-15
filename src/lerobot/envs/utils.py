@@ -37,33 +37,33 @@ def preprocess_observation(observations: dict[str, np.ndarray]) -> dict[str, Ten
     """
     # map to expected inputs for the policy
     return_observations = {}
-    # if "pixels" in observations:
-    #     if isinstance(observations["pixels"], dict):
-    #         imgs = {f"observation.images.{key}": img for key, img in observations["pixels"].items()}
-    #     else:
-    #         imgs = {"observation.image": observations["pixels"]}
+    if "pixels" in observations:
+        if isinstance(observations["pixels"], dict):
+            imgs = {f"observation.images.{key}": img for key, img in observations["pixels"].items()}
+        else:
+            imgs = {"observation.image": observations["pixels"]}
 
-    #     for imgkey, img in imgs.items():
-    #         # TODO(aliberts, rcadene): use transforms.ToTensor()?
-    #         img = torch.from_numpy(img)
+        for imgkey, img in imgs.items():
+            # TODO(aliberts, rcadene): use transforms.ToTensor()?
+            img = torch.from_numpy(img)
 
-    #         # When preprocessing observations in a non-vectorized environment, we need to add a batch dimension.
-    #         # This is the case for human-in-the-loop RL where there is only one environment.
-    #         if img.ndim == 3:
-    #             img = img.unsqueeze(0)
-    #         # sanity check that images are channel last
-    #         _, h, w, c = img.shape
-    #         assert c < h and c < w, f"expect channel last images, but instead got {img.shape=}"
+            # When preprocessing observations in a non-vectorized environment, we need to add a batch dimension.
+            # This is the case for human-in-the-loop RL where there is only one environment.
+            if img.ndim == 3:
+                img = img.unsqueeze(0)
+            # sanity check that images are channel last
+            _, h, w, c = img.shape
+            assert c < h and c < w, f"expect channel last images, but instead got {img.shape=}"
 
-    #         # sanity check that images are uint8
-    #         assert img.dtype == torch.uint8, f"expect torch.uint8, but instead {img.dtype=}"
+            # sanity check that images are uint8
+            assert img.dtype == torch.uint8, f"expect torch.uint8, but instead {img.dtype=}"
 
-    #         # convert to channel first of type float32 in range [0,1]
-    #         img = einops.rearrange(img, "b h w c -> b c h w").contiguous()
-    #         img = img.type(torch.float32)
-    #         img /= 255
+            # convert to channel first of type float32 in range [0,1]
+            img = einops.rearrange(img, "b h w c -> b c h w").contiguous()
+            img = img.type(torch.float32)
+            img /= 255
 
-    #         return_observations[imgkey] = img
+            return_observations[imgkey] = img
 
     if "environment_state" in observations:
         env_state = torch.from_numpy(observations["environment_state"]).float()

@@ -67,7 +67,7 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         self.robot_rpc_client = pyaubo_sdk.RpcClient()
         self.robot_ip = "192.168.3.12"  # 服务器 IP 地址
         self.robot_port = 30004  # 端口号
-        self.dt = 0.1
+        self.dt = 1.0 / config.fps  # 控制周期，单位为秒
         
     @property
     def action_features(self) -> dict[str, Any]:
@@ -244,6 +244,11 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
             obs_dict[cam_key] = cam.async_read()
             dt_ms = (time.perf_counter() - start) * 1e3
             logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+
+        # Success io
+        semi_success = self.robot_interface.getIoControl().getConfigurableDigitalInput(1)
+        success = self.robot_interface.getIoControl().getConfigurableDigitalInput(0)
+        obs_dict["io"] = [semi_success,success]
 
         return obs_dict
 

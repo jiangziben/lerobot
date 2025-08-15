@@ -267,14 +267,16 @@ class RobotEnv(gym.Env):
         self.fig, self.axes =plt.subplots(2,1)
         self.fig.set_size_inches(25,50)
 
-
     def _get_observation(self) -> dict[str, np.ndarray]:
         """Helper to convert a dictionary from bus.sync_read to an ordered numpy array."""
         obs_dict = self.robot.get_observation()
         joint_positions = np.array([obs_dict[name] for name in self._joint_names])
 
         images = {key: obs_dict[key] for key in self._image_keys}
-        self.current_observation = {"agent_pos": joint_positions, "pixels": images} #images
+        if "io" in obs_dict.keys():
+            self.current_observation = {"agent_pos": joint_positions, "pixels": images, "io": obs_dict["io"]}
+        else: 
+            self.current_observation = {"agent_pos": joint_positions, "pixels": images} #images
 
     def _setup_spaces(self):
         """
@@ -578,26 +580,71 @@ class RewardWrapper(gym.Wrapper):
         """
         observation, _, terminated, truncated, info = self.env.step(action)
 
-        images = {}
-        for key in observation:
-            if "image" in key:
-                images[key] = observation[key].to(self.device, non_blocking=(self.device == "cuda"))
-                if images[key].dim() == 3:
-                    images[key] = images[key].unsqueeze(0)
+        if self.env.unwrapped.robot.name == "auboc5_follower_end_effector":
+            pass
+        else:
+            images = {}
+            for key in observation:
+                if "image" in key:
+                    images[key] = observation[key].to(self.device, non_blocking=(self.device == "cuda"))
+                    if images[key].dim() == 3:
+                        images[key] = images[key].unsqueeze(0)
 
-        start_time = time.perf_counter()
-        with torch.inference_mode():
-            success = (
-                self.reward_classifier.predict_reward(images, threshold=0.7)
-                if self.reward_classifier is not None
-                else 0.0
-            )
-        info["Reward classifier frequency"] = 1 / (time.perf_counter() - start_time)
+            start_time = time.perf_counter()
+            with torch.inference_mode():
+                success = (
+                    self.reward_classifier.predict_reward(images, threshold=0.7)
+                    if self.reward_classifier is not None
+                    else 0.0
+                )
+            info["Reward classifier frequency"] = 1 / (time.perf_counter() - start_time)
+            reward = 0.0
+            if success == 1.0:
+                terminated = True
+                reward = 1.0
 
+        return observation, reward, terminated, truncated, info
+
+    def reset(self, seed=None, options=None):
+        """
+        Reset the environment.
+
+        Args:
+            seed: Random seed for reproducibility.
+            options: Additional reset options.
+
+        Returns:
+            The initial observation and info from the wrapped environment.
+        """
+        return self.env.reset(seed=seed, options=options)
+
+class RewardWrapperCustom(gym.Wrapper):
+    def __init__(self, env):
+        """
+        Wrapper to add reward prediction to the environment using a trained classifier.
+
+        Args:
+            env: The environment to wrap.
+            reward_classifier: The reward classifier model.
+            device: The device to run the model on.
+        """
+        self.env = env
+
+    def step(self, action):
+        """
+        Execute a step and compute the reward using the classifier.
+
+        Args:
+            action: The action to take in the environment.
+
+        Returns:
+            Tuple of (observation, reward, terminated, truncated, info).
+        """
+        observation, _, terminated, truncated, info = self.env.step(action)
         reward = 0.0
-        if success == 1.0:
+        if observation["io"][1]:
             terminated = True
-            reward = 1.0
+            reward += 1.0
 
         return observation, reward, terminated, truncated, info
 
@@ -1113,10 +1160,11 @@ class EEObservationWrapper(gym.ObservationWrapper):
             dtype=np.float32,
         )
 
-        # self.kinematics = RobotKinematics(
-        #     urdf_path=env.unwrapped.robot.config.urdf_path,
-        #     target_frame_name=env.unwrapped.robot.config.target_frame_name,
-        # )
+        if self.unwrapped.robot.name != "auboc5_follower_end_effector":
+            self.kinematics = RobotKinematics(
+                urdf_path=env.unwrapped.robot.config.urdf_path,
+                target_frame_name=env.unwrapped.robot.config.target_frame_name,
+            )
 
     def observation(self, observation):
         """
@@ -1907,6 +1955,8 @@ def make_robot_env(cfg: EnvConfig,**kwargs) -> gym.Env:
 
     if cfg.robot is None:
         raise ValueError("RobotConfig (cfg.robot) must be provided for gym_manipulator environment.")
+    if cfg.robot.fps is None:
+        cfg.robot.fps = cfg.fps
     robot = make_robot_from_config(cfg.robot)
     teleop_device = make_teleoperator_from_config(cfg.teleop)
     teleop_device.connect()
@@ -1917,6 +1967,9 @@ def make_robot_env(cfg: EnvConfig,**kwargs) -> gym.Env:
         use_gripper=cfg.wrapper.use_gripper,
         display_cameras=cfg.wrapper.display_cameras if cfg.wrapper else False,
     )
+    
+    if robot.name == "auboc5_follower_end_effector":
+        env = RewardWrapperCustom(env=env)
 
     # Add observation and image processing
     if cfg.wrapper:
