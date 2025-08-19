@@ -20,7 +20,7 @@ import logging
 class InputController:
     """Base class for input controllers that generate motion deltas."""
 
-    def __init__(self, x_step_size=1.0, y_step_size=1.0, z_step_size=1.0):
+    def __init__(self, x_step_size=1.0, y_step_size=1.0, z_step_size=1.0, roll_step_size = 1.0, pitch_step_size = 1.0, yaw_step_size = 1.0):
         """
         Initialize the controller.
 
@@ -32,6 +32,9 @@ class InputController:
         self.x_step_size = x_step_size
         self.y_step_size = y_step_size
         self.z_step_size = z_step_size
+        self.roll_step_size = roll_step_size
+        self.pitch_step_size = pitch_step_size
+        self.yaw_step_size = yaw_step_size
         self.running = True
         self.episode_end_status = None  # None, "success", or "failure"
         self.intervention_flag = False
@@ -48,6 +51,10 @@ class InputController:
 
     def get_deltas(self):
         """Get the current movement deltas (dx, dy, dz) in meters."""
+        return 0.0, 0.0, 0.0
+    
+    def get_deltas_rpy(self):
+        """Get the current movement deltas (roll, pitch, yaw) in rad."""
         return 0.0, 0.0, 0.0
 
     def should_quit(self):
@@ -207,8 +214,8 @@ class KeyboardController(InputController):
 class GamepadController(InputController):
     """Generate motion deltas from gamepad input."""
 
-    def __init__(self, x_step_size=1.0, y_step_size=1.0, z_step_size=1.0, deadzone=0.1):
-        super().__init__(x_step_size, y_step_size, z_step_size)
+    def __init__(self, x_step_size=1.0, y_step_size=1.0, z_step_size=1.0, deadzone=0.1, roll_step_size =1.0,pitch_step_size=1.0,yaw_step_size=1.0):
+        super().__init__(x_step_size, y_step_size, z_step_size,roll_step_size,pitch_step_size, yaw_step_size)
         self.deadzone = deadzone
         self.joystick = None
         self.intervention_flag = False
@@ -318,7 +325,33 @@ class GamepadController(InputController):
         except pygame.error:
             logging.error("Error reading gamepad. Is it still connected?")
             return 0.0, 0.0, 0.0
+        
+    def get_deltas_rpy(self):
+        import pygame
 
+        try:
+            # Read joystick axes
+            r_input = -self.joystick.get_axis(4)  # r
+            p_input = self.joystick.get_axis(3)  # p
+            yaw_input = self.joystick.get_button(6) - self.joystick.get_button(7)  # yaw
+
+            # Apply deadzone to avoid drift
+
+            # Apply deadzone to avoid drift
+            r_input = 0 if abs(r_input) < self.deadzone else r_input
+            p_input = 0 if abs(p_input) < self.deadzone else p_input
+            yaw_input = 0 if abs(yaw_input) < self.deadzone else yaw_input                
+
+            # Calculate deltas
+            delta_r = r_input * self.roll_step_size   # Roll
+            delta_p = p_input * self.pitch_step_size # Pitch
+            delta_yaw = yaw_input * self.yaw_step_size # Yaw
+
+            return delta_r, delta_p, delta_yaw
+
+        except pygame.error:
+            print("Error reading gamepad. Is it still connected?")
+            return 0.0, 0.0, 0.0
 
 class GamepadControllerHID(InputController):
     """Generate motion deltas from gamepad input using HIDAPI."""

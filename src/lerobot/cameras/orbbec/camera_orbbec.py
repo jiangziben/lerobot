@@ -356,7 +356,7 @@ class OrbbecCamera(Camera):
 
         read_duration_ms = (time.perf_counter() - start_time) * 1e3
         logger.debug(f"{self} read took: {read_duration_ms:.1f}ms")
-        cv2.imwrite("orbbec_read.jpg", color_image_processed)
+        # cv2.imwrite("orbbec_read.jpg", color_image_processed)
         return color_image_processed
 
     def _postprocess_image(

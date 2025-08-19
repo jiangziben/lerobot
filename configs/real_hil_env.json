@@ -7,15 +7,15 @@
             "front": {
                 "type": "orbbec",
                 "serial_number_or_name": "0",
-                "height": 720,
-                "width": 1280,
+                "height": 360,
+                "width": 640,
                 "fps": 30
             },
             "wrist": {
                 "type": "orbbec",
                 "serial_number_or_name": "1",
-                "height": 720,
-                "width": 1280,
+                "height": 360,
+                "width": 640,
                 "fps": 30
             }
         },
@@ -32,9 +32,12 @@
             ]
         },
         "end_effector_step_sizes": {
-            "x": 0.005,
-            "y": 0.005,
-            "z": 0.005
+            "x": 0.01,
+            "y": 0.01,
+            "z": 0.01,
+            "roll":0.261,
+            "pitch":0.261,
+            "yaw":0.0
         }
     },
     "teleop": {
@@ -43,8 +46,8 @@
     },
     "wrapper": {
         "display_cameras": true,
-        "add_joint_velocity_to_observation": true,
-        "add_current_to_observation": true,
+        "add_joint_velocity_to_observation": false,
+        "add_current_to_observation": false,
         "add_ee_pose_to_observation": true,
         "crop_params_dict":null,
         "resize_size": [
@@ -68,16 +71,16 @@
         "control_mode": "gamepad"
     },
     "name": "real_robot",
-    "mode": null,
-    "repo_id": null,
+    "mode": "record",
+    "repo_id": "hil_real",
     "dataset_root": null,
     "task": "",
     "num_episodes": 2,
     "episode": 0,
     "pretrained_policy_name_or_path": null,
     "device": "cpu",
-    "push_to_hub": true,
-    "fps": 10,
+    "push_to_hub": false,
+    "fps": 5,
     "features": {
         "observation.images.front": {
             "type": "VISUAL",

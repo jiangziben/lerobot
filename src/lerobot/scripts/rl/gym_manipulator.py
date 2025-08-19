@@ -254,7 +254,7 @@ class RobotEnv(gym.Env):
         self.current_step = 0
         self.episode_data = None
         if robot.name == 'auboc5_follower_end_effector':
-            self._joint_names = [f"{key}.pos" for key in self.robot.motors[0]]
+            self._joint_names = []
         else:
             self._joint_names = [f"{key}.pos" for key in self.robot.bus.motors]
         self._image_keys = self.robot.cameras.keys()
@@ -299,11 +299,10 @@ class RobotEnv(gym.Env):
             prefix = "observation.images"
             observation_spaces = {
                 f"{prefix}.{key}": gym.spaces.Box(
-                    low=0, high=255, shape=self.current_observation["pixels"][key].shape, dtype=np.uint8
+                    low=0, high=255, shape=np.roll(self.current_observation["pixels"][key].shape,1), dtype=np.uint8
                 )
                 for key in self.current_observation["pixels"]
             }
-
         observation_spaces["observation.state"] = gym.spaces.Box(
             low=0,
             high=10,
@@ -314,7 +313,7 @@ class RobotEnv(gym.Env):
         self.observation_space = gym.spaces.Dict(observation_spaces)
 
         # Define the action space for joint positions along with setting an intervention flag.
-        action_dim = 3
+        action_dim = 6
         bounds = {}
         bounds["min"] = -np.ones(action_dim)
         bounds["max"] = np.ones(action_dim)
@@ -374,10 +373,10 @@ class RobotEnv(gym.Env):
                 - truncated (bool): True if the episode was truncated (e.g., time constraints).
                 - info (dict): Additional debugging information including intervention status.
         """
-        action_dict = {"delta_x": action[0], "delta_y": action[1], "delta_z": action[2]}
+        action_dict = {"delta_x": action[0], "delta_y": action[1], "delta_z": action[2],"delta_roll":action[3],"delta_pitch":action[4],"delta_yaw":action[5]}
 
         # 1.0 action corresponds to no-op action
-        action_dict["gripper"] = action[3] if self.use_gripper else 1.0
+        action_dict["gripper"] = action[6] if self.use_gripper else 1.0
 
         self.robot.send_action(action_dict)
 
@@ -536,9 +535,9 @@ class AddCurrentToObservation(gym.ObservationWrapper):
             The modified observation with current values.
         """
         if self.env.unwrapped.robot.name == "auboc5_follower_end_effector":
-            joint_pos = self.env.unwrapped.robot.robot_interface.getRobotState().getJointPositions()
+            joint_currents = self.env.unwrapped.robot.robot_interface.getRobotState().getJointCurrents()
             present_current_observation = np.array(
-               joint_pos, dtype=np.float32
+               joint_currents, dtype=np.float32
             )
         else:
             present_current_dict = self.env.unwrapped.robot.bus.sync_read("Present_Current")
@@ -1150,17 +1149,26 @@ class EEObservationWrapper(gym.ObservationWrapper):
         """
         super().__init__(env)
 
-        # Extend observation space to include end effector pose
-        prev_space = self.observation_space["observation.state"]
+        if self.unwrapped.robot.name == "auboc5_follower_end_effector":
+            # Extend observation space to include end effector pose
+            prev_space = self.observation_space["observation.state"]
 
-        self.observation_space["observation.state"] = gym.spaces.Box(
-            low=np.concatenate([prev_space.low, ee_pose_limits["min"]]),
-            high=np.concatenate([prev_space.high, ee_pose_limits["max"]]),
-            shape=(prev_space.shape[0] + 3,),
-            dtype=np.float32,
-        )
+            self.observation_space["observation.state"] = gym.spaces.Box(
+                low=np.concatenate([prev_space.low, [-1.0]*6,[-100]*6]),
+                high=np.concatenate([prev_space.high, [1.0]*6,[100]*6]),
+                shape=(prev_space.shape[0] + 12,),
+                dtype=np.float32,
+            )
+        else:
+            # Extend observation space to include end effector pose
+            prev_space = self.observation_space["observation.state"]
 
-        if self.unwrapped.robot.name != "auboc5_follower_end_effector":
+            self.observation_space["observation.state"] = gym.spaces.Box(
+                low=np.concatenate([prev_space.low, ee_pose_limits["min"]]),
+                high=np.concatenate([prev_space.high, ee_pose_limits["max"]]),
+                shape=(prev_space.shape[0] + 3,),
+                dtype=np.float32,
+            )
             self.kinematics = RobotKinematics(
                 urdf_path=env.unwrapped.robot.config.urdf_path,
                 target_frame_name=env.unwrapped.robot.config.target_frame_name,
@@ -1178,10 +1186,11 @@ class EEObservationWrapper(gym.ObservationWrapper):
         """
         current_joint_pos = self.unwrapped.current_observation["agent_pos"]
         if self.unwrapped.robot.name == "auboc5_follower_end_effector":
-            current_ee_pos = np.array(self.unwrapped.robot.robot_interface.getRobotState().getTcpPose()[0:3])
+            obs_dict = self.unwrapped.robot.get_observation()
+            observation["agent_pos"] = np.concatenate([observation["agent_pos"], obs_dict["tcp_vel"],obs_dict["tcp_force"]],-1)
         else:
             current_ee_pos = self.kinematics.forward_kinematics(current_joint_pos)[:3, 3]
-        observation["agent_pos"] = np.concatenate([observation["agent_pos"], current_ee_pos], -1)
+            observation["agent_pos"] = np.concatenate([observation["agent_pos"], current_ee_pos], -1)
         return observation
 
 
@@ -1685,7 +1694,7 @@ class GamepadControlWrapper(gym.Wrapper):
 
         # Convert action_dict to numpy array based on expected structure
         # Order: delta_x, delta_y, delta_z, gripper (if use_gripper)
-        action_list = [action_dict["delta_x"], action_dict["delta_y"], action_dict["delta_z"]]
+        action_list = [action_dict["delta_x"], action_dict["delta_y"], action_dict["delta_z"],action_dict["delta_roll"],action_dict["delta_pitch"],action_dict["delta_yaw"]]
         if self.use_gripper:
             # GamepadTeleop returns gripper action as 0 (close), 1 (stay), 2 (open)
             # This needs to be consistent with what EEActionWrapper expects if it's used downstream
@@ -1967,7 +1976,6 @@ def make_robot_env(cfg: EnvConfig,**kwargs) -> gym.Env:
         use_gripper=cfg.wrapper.use_gripper,
         display_cameras=cfg.wrapper.display_cameras if cfg.wrapper else False,
     )
-    
     if robot.name == "auboc5_follower_end_effector":
         env = RewardWrapperCustom(env=env)
 
@@ -2111,7 +2119,7 @@ def record_dataset(env, policy, cfg):
     # Setup initial action (zero action if using teleop)
     action = env.action_space.sample() * 0.0
 
-    action_names = ["delta_x_ee", "delta_y_ee", "delta_z_ee","delta_roll_ee","delta_pitch_ee","delta_yaw_ee"]
+    action_names = ["delta_x_ee", "delta_y_ee", "delta_z_ee","delta_roll_ee", "delta_pitch_ee", "delta_yaw_ee"]
     if cfg.wrapper.use_gripper:
         action_names.append("gripper_delta")
 
@@ -2159,8 +2167,8 @@ def record_dataset(env, policy, cfg):
     # Record episodes
     episode_index = 0
     recorded_action = None
-    fig, axes =plt.subplots(2,1)
-    fig.set_size_inches(25,50)
+    # fig, axes =plt.subplots(2,1)
+    # fig.set_size_inches(25,50)
     # vis = RealTimeForceVisualizer()
     while episode_index < cfg.num_episodes:
         obs, _ = env.reset()
@@ -2181,14 +2189,14 @@ def record_dataset(env, policy, cfg):
 
             # Step environment
             obs, reward, terminated, truncated, info = env.step(action)
-            #show the current observation
-            axes[0].clear()
-            axes[0].axis("off")
-            axes[0].imshow(obs["observation.images.front"][0].permute(1,2,0).cpu().numpy())
-            axes[1].clear()
-            axes[1].axis("off")
-            axes[1].imshow(obs["observation.images.wrist"][0].permute(1,2,0).cpu().numpy())
-            plt.pause(0.01)
+            # #show the current observation
+            # axes[0].clear()
+            # axes[0].axis("off")
+            # axes[0].imshow(obs["observation.images.front"][0].permute(1,2,0).cpu().numpy())
+            # axes[1].clear()
+            # axes[1].axis("off")
+            # axes[1].imshow(obs["observation.images.wrist"][0].permute(1,2,0).cpu().numpy())
+            # plt.pause(0.01)
             # # show force
             # force = obs["observation.state"][0][19:22].cpu().numpy()
             # vis.update_force(force)
@@ -2206,7 +2214,7 @@ def record_dataset(env, policy, cfg):
             obs_processed = {k: v.cpu().squeeze(0).float() for k, v in obs.items()}
 
             # Check if we've just detected success
-            if reward == 1.0 and not success_detected:
+            if reward > 0.999 and not success_detected:
                 success_detected = True
                 logging.info("Success detected! Collecting additional success states.")
 
@@ -2348,10 +2356,12 @@ def main(cfg: EnvConfig):
         obs, reward, terminated, truncated, info = env.step(smoothed_action)
         if terminated or truncated:
             successes.append(reward)
+            time.sleep(2.0)
             env.reset()
             num_episode += 1
 
         dt_s = time.perf_counter() - start_loop_s
+        print("dt_s: ",dt_s)
         busy_wait(1 / cfg.fps - dt_s)
 
     logging.info(f"Success after 20 steps {successes}")
