@@ -92,6 +92,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 ACTOR_SHUTDOWN_TIMEOUT = 30
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"      
+
 
 #################################################
 # Main entry point #

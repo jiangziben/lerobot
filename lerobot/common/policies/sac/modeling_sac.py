@@ -88,9 +88,10 @@ class SACPolicy(
         observations_features = None
         if self.shared_encoder and self.actor.encoder.has_images:
             # Cache and normalize image features
-            observations_features = self.actor.encoder.get_cached_image_features(batch, normalize=True)
+            #observations_features = self.actor.encoder.get_cached_image_features(batch, normalize=True)
+            observations_features, observation_state_norm = self.actor.encoder.get_cached_features(batch, normalize=True)
 
-        actions, _, _ = self.actor(batch, observations_features)
+        actions, _, _ = self.actor(batch, observations_features, observation_state_norm)
 
         if self.config.num_discrete_actions is not None:
             discrete_action_value = self.discrete_critic(batch, observations_features)
@@ -105,6 +106,7 @@ class SACPolicy(
         actions: Tensor,
         use_target: bool = False,
         observation_features: Tensor | None = None,
+        observation_state_norm: Tensor | None = None,
     ) -> Tensor:
         """Forward pass through a critic network ensemble
 
@@ -118,7 +120,7 @@ class SACPolicy(
         """
 
         critics = self.critic_target if use_target else self.critic_ensemble
-        q_values = critics(observations, actions, observation_features)
+        q_values = critics(observations, actions, observation_features, observation_state_norm)
         return q_values
 
     def discrete_critic_forward(
@@ -163,6 +165,7 @@ class SACPolicy(
         actions: Tensor = batch["action"]
         observations: dict[str, Tensor] = batch["state"]
         observation_features: Tensor = batch.get("observation_feature")
+        observation_state_norm: Tensor = batch.get("observation_state_norm")
 
         if model == "critic":
             # Extract critic-specific components
@@ -170,6 +173,7 @@ class SACPolicy(
             next_observations: dict[str, Tensor] = batch["next_state"]
             done: Tensor = batch["done"]
             next_observation_features: Tensor = batch.get("next_observation_feature")
+            next_observation_state_norm: Tensor = batch.get("next_observation_state_norm")
 
             loss_critic = self.compute_loss_critic(
                 observations=observations,
@@ -178,7 +182,9 @@ class SACPolicy(
                 next_observations=next_observations,
                 done=done,
                 observation_features=observation_features,
+                observation_state_norm=observation_state_norm,
                 next_observation_features=next_observation_features,
+                next_observation_state_norm=next_observation_state_norm,
             )
 
             return {"loss_critic": loss_critic}
@@ -206,6 +212,7 @@ class SACPolicy(
                 "loss_actor": self.compute_loss_actor(
                     observations=observations,
                     observation_features=observation_features,
+                    observation_state_norm=observation_state_norm,
                 )
             }
 
@@ -214,6 +221,8 @@ class SACPolicy(
                 "loss_temperature": self.compute_loss_temperature(
                     observations=observations,
                     observation_features=observation_features,
+                    observation_state_norm=observation_state_norm,
+                    
                 )
             }
 
@@ -252,10 +261,12 @@ class SACPolicy(
         next_observations,
         done,
         observation_features: Tensor | None = None,
+        observation_state_norm: Tensor | None = None,
         next_observation_features: Tensor | None = None,
+        next_observation_state_norm: Tensor | None = None,
     ) -> Tensor:
         with torch.no_grad():
-            next_action_preds, next_log_probs, _ = self.actor(next_observations, next_observation_features)
+            next_action_preds, next_log_probs, _ = self.actor(next_observations, next_observation_features, next_observation_state_norm)
 
             # 2- compute q targets
             q_targets = self.critic_forward(
@@ -263,6 +274,7 @@ class SACPolicy(
                 actions=next_action_preds,
                 use_target=True,
                 observation_features=next_observation_features,
+                observation_state_norm=next_observation_state_norm,
             )
 
             # subsample critics to prevent overfitting if use high UTD (update to date)
@@ -290,6 +302,7 @@ class SACPolicy(
             actions=actions,
             use_target=False,
             observation_features=observation_features,
+            observation_state_norm=observation_state_norm,
         )
 
         # 4- Calculate loss
@@ -364,11 +377,11 @@ class SACPolicy(
         discrete_critic_loss = F.mse_loss(input=predicted_discrete_q, target=target_discrete_q)
         return discrete_critic_loss
 
-    def compute_loss_temperature(self, observations, observation_features: Tensor | None = None) -> Tensor:
+    def compute_loss_temperature(self, observations, observation_features: Tensor | None = None, observation_state_norm: Tensor | None = None,) -> Tensor:
         """Compute the temperature loss"""
         # calculate temperature loss
         with torch.no_grad():
-            _, log_probs, _ = self.actor(observations, observation_features)
+            _, log_probs, _ = self.actor(observations, observation_features, observation_state_norm)
         temperature_loss = (-self.log_alpha.exp() * (log_probs + self.target_entropy)).mean()
         return temperature_loss
 
@@ -376,14 +389,16 @@ class SACPolicy(
         self,
         observations,
         observation_features: Tensor | None = None,
+        observation_state_norm: Tensor | None = None,
     ) -> Tensor:
-        actions_pi, log_probs, _ = self.actor(observations, observation_features)
+        actions_pi, log_probs, _ = self.actor(observations, observation_features, observation_state_norm)
 
         q_preds = self.critic_forward(
             observations=observations,
             actions=actions_pi,
             use_target=False,
             observation_features=observation_features,
+            observation_state_norm=observation_state_norm,
         )
         min_q_preds = q_preds.min(dim=0)[0]
 
@@ -565,9 +580,13 @@ class SACObservationEncoder(nn.Module):
         self._out_dim = out
 
     def forward(
-        self, obs: dict[str, Tensor], cache: dict[str, Tensor] | None = None, detach: bool = False
+        self, obs: dict[str, Tensor], cache: dict[str, Tensor] | None = None, state_norm: Tensor | None = None, detach: bool = False
     ) -> Tensor:
-        obs = self.input_normalization(obs)
+        #obs = self.input_normalization(obs)
+        if state_norm is None:
+            raise ValueError(
+                "state_norm must be provided when using an SAC Observation Encoder"
+            )
         parts = []
         if self.has_images:
             if cache is None:
@@ -576,7 +595,8 @@ class SACObservationEncoder(nn.Module):
         if self.has_env:
             parts.append(self.env_encoder(obs["observation.environment_state"]))
         if self.has_state:
-            parts.append(self.state_encoder(obs["observation.state"]))
+            #parts.append(self.state_encoder(obs["observation.state"]))
+            parts.append(self.state_encoder(state_norm))
         if parts:
             return torch.cat(parts, dim=-1)
 
@@ -621,6 +641,14 @@ class SACObservationEncoder(nn.Module):
         chunks = torch.chunk(out, len(self.image_keys), dim=0)
         return dict(zip(self.image_keys, chunks, strict=False))
 
+    def get_cached_features(self, obs: dict[str, Tensor], normalize: bool = False) -> dict[str, Tensor]:
+        if normalize:
+            obs = self.input_normalization(obs)
+        batched = torch.cat([obs[k] for k in self.image_keys], dim=0)
+        out = self.image_encoder(batched)
+        chunks = torch.chunk(out, len(self.image_keys), dim=0)
+        return dict(zip(self.image_keys, chunks, strict=False)), obs["observation.state"]
+    
     def _encode_images(self, cache: dict[str, Tensor], detach: bool) -> Tensor:
         """Encode image features from cached observations.
 
@@ -770,6 +798,7 @@ class CriticEnsemble(nn.Module):
         observations: dict[str, torch.Tensor],
         actions: torch.Tensor,
         observation_features: torch.Tensor | None = None,
+        observation_state_norm: torch.Tensor | None = None,
     ) -> torch.Tensor:
         device = get_device_from_parameters(self)
         # Move each tensor in observations to device
@@ -780,7 +809,7 @@ class CriticEnsemble(nn.Module):
         actions = self.output_normalization(actions)["action"]
         actions = actions.to(device)
 
-        obs_enc = self.encoder(observations, cache=observation_features)
+        obs_enc = self.encoder(observations, cache=observation_features, state_norm=observation_state_norm)
 
         inputs = torch.cat([obs_enc, actions], dim=-1)
 
@@ -885,10 +914,11 @@ class Policy(nn.Module):
         self,
         observations: torch.Tensor,
         observation_features: torch.Tensor | None = None,
+        observation_state_norm: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # We detach the encoder if it is shared to avoid backprop through it
         # This is important to avoid the encoder to be updated through the policy
-        obs_enc = self.encoder(observations, cache=observation_features, detach=self.encoder_is_shared)
+        obs_enc = self.encoder(observations, cache=observation_features, state_norm=observation_state_norm, detach=self.encoder_is_shared)
 
         # Get network outputs
         outputs = self.network(obs_enc)

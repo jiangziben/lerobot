@@ -398,7 +398,11 @@ def add_actor_information_and_train(
             )
 
         time_for_one_optimization_step = time.time()
+        
+        import cProfile
+        profiler = cProfile.Profile()
         for _ in range(utd_ratio - 1):
+            profiler.enable()
             # Sample from the iterators
             batch = next(online_iterator)
 
@@ -415,7 +419,7 @@ def add_actor_information_and_train(
             done = batch["done"]
             check_nan_in_transition(observations=observations, actions=actions, next_state=next_observations)
 
-            observation_features, next_observation_features = get_observation_features(
+            observation_features, observation_state_norm, next_observation_features, next_observation_state_norm = get_observation_features(
                 policy=policy, observations=observations, next_observations=next_observations
             )
 
@@ -428,6 +432,8 @@ def add_actor_information_and_train(
                 "done": done,
                 "observation_feature": observation_features,
                 "next_observation_feature": next_observation_features,
+                "observation_state_norm": observation_state_norm,
+                "next_observation_state_norm": next_observation_state_norm,
                 "complementary_info": batch["complementary_info"],
             }
 
@@ -474,7 +480,7 @@ def add_actor_information_and_train(
 
         check_nan_in_transition(observations=observations, actions=actions, next_state=next_observations)
 
-        observation_features, next_observation_features = get_observation_features(
+        observation_features, observation_state_norm, next_observation_features, next_observation_state_norm = get_observation_features(
             policy=policy, observations=observations, next_observations=next_observations
         )
 
@@ -487,6 +493,8 @@ def add_actor_information_and_train(
             "done": done,
             "observation_feature": observation_features,
             "next_observation_feature": next_observation_features,
+            "observation_state_norm": observation_state_norm,
+            "next_observation_state_norm": next_observation_state_norm,
         }
 
         critic_output = policy.forward(forward_batch, model="critic")
@@ -574,6 +582,8 @@ def add_actor_information_and_train(
             if wandb_logger:
                 wandb_logger.log_dict(d=training_infos, mode="train", custom_step_key="Optimization step")
 
+        profiler.disable()
+        profiler.print_stats(sort='time')  # 按耗时排序
         # Calculate and log optimization frequency
         time_for_one_optimization_step = time.time() - time_for_one_optimization_step
         frequency_for_one_optimization_step = 1 / (time_for_one_optimization_step + 1e-9)
@@ -1030,7 +1040,7 @@ def initialize_offline_replay_buffer(
 
 def get_observation_features(
     policy: SACPolicy, observations: torch.Tensor, next_observations: torch.Tensor
-) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
     """
     Get observation features from the policy encoder. It act as cache for the observation features.
     when the encoder is frozen, the observation features are not updated.
@@ -1046,15 +1056,19 @@ def get_observation_features(
     """
 
     if policy.config.vision_encoder_name is None or not policy.config.freeze_vision_encoder:
-        return None, None
+        return None, None, None, None
 
     with torch.no_grad():
-        observation_features = policy.actor.encoder.get_cached_image_features(observations, normalize=True)
-        next_observation_features = policy.actor.encoder.get_cached_image_features(
+        # observation_features = policy.actor.encoder.get_cached_image_features(observations, normalize=True)
+        # next_observation_features = policy.actor.encoder.get_cached_image_features(
+        #     next_observations, normalize=True
+        # )
+        observation_features, observation_state_norm = policy.actor.encoder.get_cached_features(observations, normalize=True)
+        next_observation_features,  next_observation_state_norm = policy.actor.encoder.get_cached_features(
             next_observations, normalize=True
         )
 
-    return observation_features, next_observation_features
+    return observation_features, observation_state_norm, next_observation_features, next_observation_state_norm
 
 
 def use_threads(cfg: TrainRLServerPipelineConfig) -> bool:

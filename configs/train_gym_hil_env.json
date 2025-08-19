@@ -10,7 +10,7 @@
     "save_checkpoint": true,
     "save_freq": 2000,
     "wandb": {
-        "enable": true,
+        "enable": false,
         "project": "franka_sim",
         "disable_artifact": true
     },
