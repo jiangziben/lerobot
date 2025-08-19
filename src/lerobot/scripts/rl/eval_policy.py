@@ -31,6 +31,8 @@ from lerobot.teleoperators import (
     so101_leader,  # noqa: F401
 )
 from pathlib import Path
+import time
+from lerobot.utils.robot_utils import busy_wait
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,6 +43,7 @@ def eval_policy(env, policy, n_episodes):
         obs, _ = env.reset()
         episode_reward = 0.0
         while True:
+            start_loop_s = time.perf_counter()
             action = policy.select_action(obs)
             action[:,3:6] = 0.0
             obs, reward, terminated, truncated, _ = env.step(action)
@@ -52,6 +55,9 @@ def eval_policy(env, policy, n_episodes):
                 else:
                     print("Failure!")
                 break
+            dt_s = time.perf_counter() - start_loop_s
+            # print("dt_s: ",dt_s)
+            busy_wait(1 / 5 - dt_s)
         sum_reward_episode.append(episode_reward)
 
     logging.info(f"Success after 100 steps {sum_reward_episode}")
@@ -64,14 +70,14 @@ def main(cfg: TrainRLServerPipelineConfig):
     policy_path = Path(config_path).parent
     cfg.policy.pretrained_path = policy_path
     env_cfg = cfg.env
-    env = make_robot_env(env_cfg,use_gamepad=False,render_mode="human",random_actor=True)
+    env = make_robot_env(env_cfg,use_gamepad=True,render_mode="human",random_actor=True)
     policy =  make_policy(
         cfg=cfg.policy,
         env_cfg=cfg.env
     )
     policy = policy.eval()
 
-    eval_policy(env, policy=policy, n_episodes=100)
+    eval_policy(env, policy=policy, n_episodes=10)
 
 
 if __name__ == "__main__":

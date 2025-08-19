@@ -88,7 +88,7 @@
     "repo_id": "hil_real",
     "dataset_root": null,
     "task": "",
-    "num_episodes": 2,
+    "num_episodes": 20,
     "episode": 0,
     "pretrained_policy_name_or_path": null,
     "device": "cpu",
@@ -125,7 +125,7 @@
         }
     },
     "features_map": {
-        "observation.images.front": "observation.images.side",
+        "observation.images.front": "observation.images.front",
         "observation.images.wrist": "observation.images.wrist",
         "observation.state": "observation.state",
         "action": "action"

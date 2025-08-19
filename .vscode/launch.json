@@ -35,6 +35,16 @@
             "cwd": "${workspaceFolder}",
         },
         {
+            "name": "learner_real",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/lerobot/scripts/rl/learner.py",
+            "console": "integratedTerminal",
+            "args": "--config_path=configs/train_hilserl_auboc5.json",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
             "name": "actor",
             "type": "debugpy",
             "request": "launch",
@@ -45,13 +55,23 @@
             "cwd": "${workspaceFolder}",
         },
         {
+            "name": "actor_real",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/lerobot/scripts/rl/actor.py",
+            "console": "integratedTerminal",
+            "args": "--config_path=configs/train_hilserl_auboc5.json",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
             "name": "actor_resume",
             "type": "debugpy",
             "request": "launch",
             "program": "src/lerobot/scripts/rl/actor.py",
             "console": "integratedTerminal",
             "args": [
-                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-05/14-11-18_default/checkpoints/last/pretrained_model/train_config.json",
+                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-19/16-31-20_default/checkpoints/last/pretrained_model/train_config.json",
                 "--resume=true"
             ],
             "justMyCode": false,
@@ -64,7 +84,7 @@
             "program": "src/lerobot/scripts/rl/learner.py",
             "console": "integratedTerminal",
             "args": [
-                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-05/14-11-18_default/checkpoints/last/pretrained_model/train_config.json",
+                "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-19/16-31-20_default/checkpoints/last/pretrained_model/train_config.json",
                 "--resume=true"
             ],
             "justMyCode": false,
@@ -77,6 +97,16 @@
             "program": "src/lerobot/scripts/rl/eval_policy.py",
             "console": "integratedTerminal",
             "args": "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-05/14-11-18_default/checkpoints/last/pretrained_model/train_config.json",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "eval_real",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "src/lerobot/scripts/rl/eval_policy.py",
+            "console": "integratedTerminal",
+            "args": "--config_path=/home/gsmp/extra_home/lerobot/outputs/train/2025-08-19/16-31-20_default/checkpoints/0020000/pretrained_model/train_config.json",
             "justMyCode": false,
             "cwd": "${workspaceFolder}",
         },

@@ -6,22 +6,22 @@
     "num_workers": 4,
     "batch_size": 256,
     "steps": 100000,
-    "log_freq": 500,
+    "log_freq": 1,
     "save_checkpoint": true,
-    "save_freq": 2000000,
+    "save_freq": 2000,
     "wandb": {
         "enable": true,
         "project": "auboc5_real",
         "disable_artifact": true
     },
     "dataset": {
-        "repo_id": "charging_task_hil_force_real",
+        "repo_id": "hil_real",
         "use_imagenet_stats": false
     },
     "policy": {
         "type": "sac",
         "n_obs_steps": 1,
-        "repo_id": "charging_task_hil_force_real",
+        "repo_id": "hil_real",
         "normalization_mapping": {
             "VISUAL": "MEAN_STD",
             "STATE": "MIN_MAX",
@@ -48,25 +48,13 @@
             "observation.state": {
                 "type": "STATE",
                 "shape": [
-                    15
+                    12
                 ]
             }
         },
         "device": "cuda",
         "use_amp": false,
         "dataset_stats": {
-            "observation.images.side": {
-                "mean": [
-                    0.485,
-                    0.456,
-                    0.406
-                ],
-                "std": [
-                    0.229,
-                    0.224,
-                    0.225
-                ]
-            },
             "observation.images.front": {
                 "mean": [
                     0.485,
@@ -79,53 +67,21 @@
                     0.225
                 ]
             },
-            "observation.state": {
-                "min": [
-                    -15.0,
-                    -20.0,
-                    10.0,
-                    65.0,
-                    0.0,
-                    0.0,
-                    -40.0,
-                    -60.0,
-                    -50.0,
-                    -80.0,
-                    -10.0,
-                    -110.0,
-                    -15.0,
-                    -20.0,
-                    15.0,
-                    70.0,
-                    -5.0,
-                    0.0,
-                    0.26,
-                    -0.06,
-                    0.25
+            "observation.images.wrist": {
+                "mean": [
+                    0.485,
+                    0.456,
+                    0.406
                 ],
-                "max": [
-                    15.0,
-                    15.0,
-                    40.0,
-                    110.0,
-                    0.5,
-                    31.0,
-                    53.0,
-                    61.0,
-                    67.0,
-                    90.0,
-                    6.0,
-                    100.0,
-                    15.0,
-                    12.0,
-                    40.0,
-                    110.0,
-                    0.5,
-                    31.0,
-                    0.32,
-                    0.06,
-                    0.35
+                "std": [
+                    0.229,
+                    0.224,
+                    0.225
                 ]
+            },
+            "observation.state": {
+                "min": [-0.1, -0.1, -0.1, -3.14, -3.14, -3.14, -100,-100,-100, -20, -20, -20],
+                "max": [ 0.1, 0.1, 0.1, 3.14, 3.14, 3.14, 100,100,100, 20, 20, 20]
             },
             "action": {
                 "min": [
@@ -203,20 +159,18 @@
         "robot": {
             "type": "auboc5_follower_end_effector",
             "port": "/dev/ttyACM0",
-            "urdf_path": "path/to/your/robot.urdf",
-            "target_frame_name": "gripper_frame_link",
             "cameras": {
                 "front": {
-                    "type": "opencv",
-                    "index_or_path": 2,
-                    "height": 480,
+                    "type": "orbbec",
+                    "serial_number_or_name": "0",
+                    "height": 360,
                     "width": 640,
                     "fps": 30
                 },
                 "wrist": {
-                    "type": "opencv",
-                    "index_or_path": 8,
-                    "height": 480,
+                    "type": "orbbec",
+                    "serial_number_or_name": "1",
+                    "height": 360,
                     "width": 640,
                     "fps": 30
                 }
@@ -233,6 +187,14 @@
                     1.0
                 ]
             },
+            "end_effector_step_sizes": {
+                "x": 0.01,
+                "y": 0.01,
+                "z": 0.01,
+                "roll":0.261,
+                "pitch":0.261,
+                "yaw":0.0
+            },
             "max_gripper_pos": 30
         },
         "teleop": {
@@ -240,21 +202,21 @@
             "use_gripper": false
         },
         "wrapper": {
-            "display_cameras": false,
-            "add_joint_velocity_to_observation": true,
-            "add_current_to_observation": true,
+            "display_cameras": true,
+            "add_joint_velocity_to_observation": false,
+            "add_current_to_observation": false,
             "add_ee_pose_to_observation": true,
             "crop_params_dict": {
                 "observation.images.front": [
-                    270,
-                    170,
-                    90,
-                    190
+                    0,
+                    0,
+                    360,
+                    640
                 ],
                 "observation.images.wrist": [
                     0,
                     0,
-                    480,
+                    360,
                     640
                 ]
             },
@@ -263,7 +225,7 @@
                 128
             ],
             "control_time_s": 60.0,
-            "use_gripper": true,
+            "use_gripper": false,
             "gripper_quantization_threshold": null,
             "gripper_penalty": -0.02,
             "gripper_penalty_in_reward": false,
@@ -280,15 +242,15 @@
         },
         "name": "real_robot",
         "mode": null,
-        "repo_id": null,
+        "repo_id": "hil_real",
         "dataset_root": null,
         "task": "",
         "num_episodes": 0,
         "episode": 0,
         "pretrained_policy_name_or_path": null,
         "device": "cuda",
-        "push_to_hub": true,
-        "fps": 10,
+        "push_to_hub": false,
+        "fps": 5,
         "features": {
             "observation.images.front": {
                 "type": "VISUAL",
@@ -309,18 +271,18 @@
             "observation.state": {
                 "type": "STATE",
                 "shape": [
-                    15
+                    12
                 ]
             },
             "action": {
                 "type": "ACTION",
                 "shape": [
-                    3
+                    6
                 ]
             }
         },
         "features_map": {
-            "observation.images.front": "observation.images.side",
+            "observation.images.front": "observation.images.front",
             "observation.images.wrist": "observation.images.wrist",
             "observation.state": "observation.state",
             "action": "action"

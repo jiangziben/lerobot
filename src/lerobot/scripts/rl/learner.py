@@ -72,7 +72,7 @@ from lerobot.datasets.factory import make_dataset
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.policies.factory import make_policy
 from lerobot.policies.sac.modeling_sac import SACPolicy
-from lerobot.robots import so100_follower  # noqa: F401
+from lerobot.robots import so100_follower,auboc5_follower  # noqa: F401
 from lerobot.scripts.rl import learner_service
 from lerobot.teleoperators import gamepad, so101_leader  # noqa: F401
 from lerobot.transport import services_pb2_grpc
