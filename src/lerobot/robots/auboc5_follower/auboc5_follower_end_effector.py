@@ -88,13 +88,14 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         #设置传感器类型
         self.robot_interface.getRobotConfig().selectTcpForceSensor("xinjingcheng")
 
-        #设置负载参数
-        weight = 0.804
-        self.robot_interface.getRobotConfig().setPayload(weight,[0,0,0], [0,0,0], [0,0,0,0,0,0,0,0,0])
+        # #设置负载参数
+        # weight = 0.903
+        # cog = [-0.00362,0.00588,0.04561] 
+        # self.robot_interface.getRobotConfig().setPayload(weight,cog, [0,0,0], [0,0,0,0,0,0,0,0,0])
 
-        #设置传感器安装位姿
-        sensor_pose = [ 0, 0, -0.130, 0, 0, -0.785 ]
-        self.robot_interface.getRobotConfig().setTcpForceSensorPose(sensor_pose)
+        # #设置传感器安装位姿
+        # sensor_pose = [ 0, 0, 0.0, 0, 0, 0.0 ]
+        # self.robot_interface.getRobotConfig().setTcpForceSensorPose(sensor_pose)
 
         # #设置tcp偏置
         # tcp_offset = [0, 0, 0.0, 0, 0, 0]
@@ -233,21 +234,23 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
 
         # read tcp state
-        current_ee_speed = self.robot_interface.getRobotState().getTcpSpeed()
+        # current_ee_speed = self.robot_interface.getRobotState().getTcpSpeed()
         # print("current_ee_speed:", current_ee_speed)
         # tcp_force = self.robot_interface.getRobotState().getTcpForce()
         # print("tcp_force:", tcp_force)
-        tcp_force_sensors = np.array(self.robot_interface.getRobotState().getTcpForceSensors())
-        #伴随矩阵
-        adjoint_matrix = np.zeros((6, 6), dtype=np.float32)
-        R = np.array([[math.cos(np.pi/4),math.sin(np.pi/4),0],[-math.sin(np.pi/4),math.cos(np.pi/4),0],[0,0,1]], dtype=np.float32)
-        adjoint_matrix[:3,:3] = R
-        adjoint_matrix[3:6,3:6] = R
-        tcp_force_sensors_tcp = adjoint_matrix @ tcp_force_sensors
+        # tcp_force_sensors = np.array(self.robot_interface.getRobotState().getTcpForceSensors())
+        # sensor_pose = self.robot_interface.getRobotConfig().getTcpForceSensorPose()
+        # print("sensor_pose: ",sensor_pose)
+        # #伴随矩阵
+        # adjoint_matrix = np.zeros((6, 6), dtype=np.float32)
+        # R = np.array([[math.cos(np.pi/4),math.sin(np.pi/4),0],[-math.sin(np.pi/4),math.cos(np.pi/4),0],[0,0,1]], dtype=np.float32)
+        # adjoint_matrix[:3,:3] = R
+        # adjoint_matrix[3:6,3:6] = R
+        # tcp_force_sensors_tcp = adjoint_matrix @ tcp_force_sensors
         # print("tcp_force_sensors: ",tcp_force_sensors)
         # print("tcp_force_sensors_tcp: ",tcp_force_sensors_tcp)
-        obs_dict["tcp_vel"] = current_ee_speed
-        obs_dict["tcp_force"] = tcp_force_sensors_tcp
+        # obs_dict["tcp_vel"] = current_ee_speed
+        # obs_dict["tcp_force"] = tcp_force
 
         # Capture images from cameras
         for cam_key, cam in self.cameras.items():

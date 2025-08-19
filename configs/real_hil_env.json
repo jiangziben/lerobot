@@ -49,7 +49,20 @@
         "add_joint_velocity_to_observation": false,
         "add_current_to_observation": false,
         "add_ee_pose_to_observation": true,
-        "crop_params_dict":null,
+        "crop_params_dict":{
+            "observation.images.front": [
+                0,
+                0,
+                360,
+                640
+            ],
+            "observation.images.wrist": [
+                0,
+                0,
+                360,
+                640
+            ]
+        },
         "resize_size": [
             128,
             128
@@ -101,13 +114,13 @@
         "observation.state": {
             "type": "STATE",
             "shape": [
-                15
+                12
             ]
         },
         "action": {
             "type": "ACTION",
             "shape": [
-                3
+                6
             ]
         }
     },

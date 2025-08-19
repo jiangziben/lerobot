@@ -1186,8 +1186,9 @@ class EEObservationWrapper(gym.ObservationWrapper):
         """
         current_joint_pos = self.unwrapped.current_observation["agent_pos"]
         if self.unwrapped.robot.name == "auboc5_follower_end_effector":
-            obs_dict = self.unwrapped.robot.get_observation()
-            observation["agent_pos"] = np.concatenate([observation["agent_pos"], obs_dict["tcp_vel"],obs_dict["tcp_force"]],-1)
+            tcp_speed = self.unwrapped.robot.robot_interface.getRobotState().getTcpSpeed()
+            tcp_force = self.unwrapped.robot.robot_interface.getRobotState().getTcpForce()
+            observation["agent_pos"] = np.concatenate([observation["agent_pos"], tcp_speed, tcp_force],-1)
         else:
             current_ee_pos = self.kinematics.forward_kinematics(current_joint_pos)[:3, 3]
             observation["agent_pos"] = np.concatenate([observation["agent_pos"], current_ee_pos], -1)
@@ -2361,7 +2362,7 @@ def main(cfg: EnvConfig):
             num_episode += 1
 
         dt_s = time.perf_counter() - start_loop_s
-        print("dt_s: ",dt_s)
+        # print("dt_s: ",dt_s)
         busy_wait(1 / cfg.fps - dt_s)
 
     logging.info(f"Success after 20 steps {successes}")
