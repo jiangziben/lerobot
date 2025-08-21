@@ -103,7 +103,7 @@ class AUBOC5FollowerEndEffector(AUBOC5Follower):
         
         #设置力控参数
         admittance_m=[30.0,30.0,30.0,1.0,1.0,1.0]
-        admittance_d=[1000.0,1000.0,2000.0,25.0,25.0,25.0]
+        admittance_d=[800.0,800.0,1200.0,25.0,25.0,25.0]
         admittance_k= [0.0,0.0,0.0,0.0,0.0,0.0]
         self.robot_interface.getForceControl().setDynamicModel(admittance_m, admittance_d, admittance_k)
         self.mc = self.robot_interface.getMotionControl()

@@ -37,7 +37,7 @@ from lerobot.utils.robot_utils import busy_wait
 logging.basicConfig(level=logging.INFO)
 
 
-def eval_policy(env, policy, n_episodes):
+def eval_policy(env, policy, n_episodes,control_fps=5):
     sum_reward_episode = []
     for _ in range(n_episodes):
         obs, _ = env.reset()
@@ -57,11 +57,12 @@ def eval_policy(env, policy, n_episodes):
                 break
             dt_s = time.perf_counter() - start_loop_s
             # print("dt_s: ",dt_s)
-            busy_wait(1 / 5 - dt_s)
+            busy_wait(1 / control_fps - dt_s)
         sum_reward_episode.append(episode_reward)
-
+    env.reset()
+    env.close()
     logging.info(f"Success after 100 steps {sum_reward_episode}")
-    logging.info(f"success rate {sum(sum_reward_episode) / len(sum_reward_episode)}")
+    logging.info(f"success rate {sum(sum_reward_episode) / len(sum_reward_episode) * 100}%")
 
 
 @parser.wrap()
@@ -77,7 +78,7 @@ def main(cfg: TrainRLServerPipelineConfig):
     )
     policy = policy.eval()
 
-    eval_policy(env, policy=policy, n_episodes=10)
+    eval_policy(env, policy=policy, n_episodes=10,control_fps = cfg.env.fps)
 
 
 if __name__ == "__main__":

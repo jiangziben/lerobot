@@ -99,7 +99,7 @@ from lerobot.utils.utils import (
 )
 from lerobot.utils.wandb_utils import WandBLogger
 import os
-os.environ["WANDB_BASE_URL"] = "https://api.wandb-cn.top"
+os.environ["WANDB_BASE_URL"] = "https://api.bandw.top" #"https://api.wandb-cn.top"
 LOG_PREFIX = "[LEARNER]"
 
 #################################################
@@ -875,6 +875,8 @@ def handle_resume_logic(cfg: TrainRLServerPipelineConfig) -> TrainRLServerPipeli
     # Load config using Draccus
     checkpoint_cfg_path = os.path.join(checkpoint_dir, PRETRAINED_MODEL_DIR, "train_config.json")
     checkpoint_cfg = TrainRLServerPipelineConfig.from_pretrained(checkpoint_cfg_path)
+    if checkpoint_cfg.policy.pretrained_path is None:
+        checkpoint_cfg.policy.pretrained_path = cfg.policy.pretrained_path
 
     # Ensure resume flag is set in returned config
     checkpoint_cfg.resume = True

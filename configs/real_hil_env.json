@@ -84,7 +84,7 @@
         "control_mode": "gamepad"
     },
     "name": "real_robot",
-    "mode": "record",
+    "mode": null,
     "repo_id": "hil_real",
     "dataset_root": null,
     "task": "",
